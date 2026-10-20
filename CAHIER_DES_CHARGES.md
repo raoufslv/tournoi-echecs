@@ -2,7 +2,7 @@
 
 Document de référence du projet perso. Il fixe le périmètre, la stack, l’architecture, les règles métier, les tests, le déploiement et le monitoring.
 
-Statut : cadrage validé, développement pas encore commencé.
+Statut : V1 livrée (partie en direct, spectateur, historique, rejeu, abandon, CI). Restent le tournoi V2, la mise en ligne et le monitoring.
 
 ---
 
@@ -37,7 +37,7 @@ Pourquoi ce sujet plutôt qu’un CRUD :
 
 ### Technique (ce que le CV et l’entretien doivent pouvoir défendre)
 
-- API Java 21 / Spring Boot 3, source de vérité côté serveur.
+- API Java 21 / Spring Boot 4, source de vérité côté serveur.
 - PostgreSQL, migrations Flyway, contrainte d’unicité sur le numéro de coup.
 - Spring Security + JWT, rôles joueur / spectateur.
 - Kafka pour publier les faits de jeu, avec outbox dans la même transaction que le coup.
@@ -88,6 +88,7 @@ Comptes de démo prévus pour l’entretien : deux joueurs + un spectateur, iden
 
 ### Explicitement reporté
 
+- Nulles autres que le pat (répétition, règle des 50 coups, matériel insuffisant, proposition de nulle).
 - Contrôle du temps (blitz, pendule). On peut l’ajouter après la V1 si la démo est déjà solide.
 - Chat.
 - Plusieurs parties simultanées par utilisateur au-delà du besoin démo.
@@ -101,7 +102,8 @@ Trois fenêtres côte à côte.
 2. Les Noirs le voient apparaître.
 3. Le spectateur le voit aussi, et ne peut pas jouer.
 4. Tentative de coup illégal : l’API refuse, l’échiquier ne change pas.
-5. Bouton Rejouer : la partie se reconstruit coup par coup depuis l’historique.
+5. Rejeu : boutons, flèches du clavier ou clic sur un coup reconstruisent la partie coup par coup depuis l’historique ; « Revenir à la partie en cours » ramène au direct.
+6. Un joueur abandonne : le résultat s’affiche aux trois écrans.
 
 Phrase d’intention, si on demande pourquoi ce projet :
 
@@ -112,7 +114,7 @@ On joue souvent entre amis. Organiser notre tournoi était l’occasion. Lichess
 ### Backend
 
 - Java 21
-- Spring Boot 3
+- Spring Boot 4
 - Maven
 - Spring Web (REST)
 - Spring Data JPA
@@ -126,7 +128,9 @@ On joue souvent entre amis. Organiser notre tournoi était l’occasion. Lichess
 Deux services :
 
 - `game-service` : comptes, parties, coups, persistance, publication des événements.
-- `live-service` : consommation Kafka, push temps réel, rejeu exposé aux clients.
+- `live-service` : consommation Kafka et push temps réel en SSE.
+
+Le rejeu n’est pas porté par le flux : le front charge l’historique avec `GET /games/{code}/moves` sur `game-service`.
 
 ### Frontend
 
@@ -134,7 +138,7 @@ Deux services :
 - TypeScript
 - Angular CLI
 - chessground (échiquier visuel uniquement, enveloppé dans un composant Angular : affichage, drag and drop). Il ne valide pas les règles.
-- Composants, services, routeur et HttpClient pour le REST. WebSocket ou SSE pour le direct.
+- Composants, services, routeur et HttpClient pour le REST. SSE (`EventSource`) pour le direct.
 
 ### Outillage
 
@@ -152,7 +156,7 @@ Deux services :
 
 ```
 Navigateur (Angular + chessground)
-        |  REST + JWT                |  WebSocket ou SSE
+        |  REST + JWT                |  SSE
         v                            v
   game-service                  live-service
   (valide le coup,              (consomme les événements,
@@ -194,8 +198,8 @@ Règles d’architecture :
 - white_user_id (nullable jusqu’au join)
 - black_user_id (nullable jusqu’au join)
 - status : `WAITING`, `IN_PROGRESS`, `FINISHED`
-- result : `WHITE_WIN`, `BLACK_WIN`, `DRAW`, null
-- end_reason : `CHECKMATE`, `STALEMATE`, `RESIGN`, null
+- result : `1-0`, `0-1`, `1/2-1/2`, null
+- end_reason : `CHECKMATE`, `STALEMATE`, `RESIGNATION`, null
 - current_fen
 - next_move_number (entier, démarre à 1)
 - created_at
@@ -208,7 +212,7 @@ Règles d’architecture :
 - move_number
 - player_color : `WHITE` ou `BLACK`
 - uci (ex. `e2e4`, `e7e8q` pour une promotion)
-- san (ex. `e4`, `e8=Q`) pour l’affichage
+- san (ex. `e4`, `e8=Q`, `Qh4#`) pour l’affichage, calculé par le serveur avant d’appliquer le coup
 - fen_after
 - created_at
 - contrainte unique `(game_id, move_number)`
@@ -258,8 +262,8 @@ Erreurs métier, en JSON, avec un code stable :
 
 Le live :
 
-- WebSocket (ou SSE) sur `live-service`, canal par `gameId` ou par `code`.
-- Message poussé après `move.played` et `game.ended` : FEN, coup, numéro, statut.
+- SSE sur `live-service` : `GET /games/{code}/watch`, un flux par code de partie, en lecture seule, sans JWT (le code sert de secret de partage). Un battement de cœur maintient la connexion.
+- Message poussé après `move.played` et `game.ended`, relayé tel quel depuis Kafka. À chaque (ré)ouverture du flux, le front recharge l’état par REST pour rattraper ce qu’il a manqué.
 
 CORS : origines du front local, puis l’URL de prod, rien d’autre.
 
@@ -281,6 +285,7 @@ Un type par message.
 ### game.ended
 
 - gameId
+- moveNumber
 - result
 - endReason
 - finalFen
@@ -336,7 +341,7 @@ Pas de couverture à 100 %. Les parcours ci-dessus sont le contrat.
 ```
 tournoi-echecs/
   CAHIER_DES_CHARGES.md
-  README.md                  (ajouté au démarrage du code)
+  README.md
   docker-compose.yml
   game-service/
   live-service/
@@ -379,9 +384,12 @@ Comptes et codes de partie de démo documentés dans le README, jamais de secret
 
 GitHub Actions, à chaque push sur la branche de travail :
 
-- `mvn test` pour `game-service` et `live-service` (Testcontainers a besoin de Docker sur le runner)
-- `npm ci` puis `ng build` du front Angular
-- build des images Docker, sans les publier tant que le déploiement n’existe pas
+En place (`.github/workflows/ci.yml`, trois jobs, sur chaque push et pull request) :
+
+- `./mvnw test` pour `game-service` et `live-service` (Testcontainers utilise le Docker du runner)
+- `npm ci`, `ng build`, puis `ng test` en Chrome headless sans bac à sable pour le front Angular
+
+À venir : build des images Docker, sans les publier tant que le déploiement n’existe pas.
 
 ## 17. Déploiement
 

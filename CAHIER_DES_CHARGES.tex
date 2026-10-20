@@ -117,7 +117,7 @@ Java, Spring Boot, PostgreSQL, Kafka, Angular.\par}
 
 \vspace{8pt}
 \begin{tabularx}{\linewidth}{@{}p{2.3cm} L@{}}
-Statut & Cadrage validé. Développement pas encore commencé. \\
+Statut & V1 livrée (partie en direct, spectateur, historique, rejeu, abandon, CI). Restent le tournoi V2, la mise en ligne et le monitoring. \\
 Auteur & Raouf Abdallah \\
 Document & Référence du projet, du cadrage jusqu'à la mise en ligne. \\
 \end{tabularx}
@@ -170,7 +170,7 @@ Ce sujet plutôt qu'un CRUD, parce que :
 Ce que le CV et l'entretien doivent pouvoir défendre, une fois le projet livré.
 
 \begin{itemize}
-  \item API Java 21 / Spring Boot 3, source de vérité côté serveur.
+  \item API Java 21 / Spring Boot 4, source de vérité côté serveur.
   \item PostgreSQL, migrations Flyway, unicité du numéro de coup.
   \item Spring Security et JWT, rôles joueur et spectateur.
   \item Kafka, avec outbox dans la même transaction que le coup.
@@ -248,7 +248,8 @@ Trois fenêtres côte à côte.
   \item Les Noirs le voient apparaître.
   \item Le spectateur le voit aussi, et ne peut pas jouer.
   \item Un coup illégal est refusé : l'échiquier ne change pas.
-  \item Le bouton Rejouer reconstruit la partie coup par coup.
+  \item Le rejeu (boutons, flèches du clavier, clic sur un coup) reconstruit la partie coup par coup ; « Revenir à la partie en cours » ramène au direct.
+  \item Un joueur abandonne : le résultat s'affiche aux trois écrans.
 \end{enumerate}
 
 Si l'on demande pourquoi ce projet :
@@ -265,7 +266,7 @@ On joue souvent entre amis. Organiser notre tournoi était l'occasion. Lichess e
 \toprule
 Élément & Rôle \\
 \midrule
-Java 21, Spring Boot 3, Maven & Socle des deux services. \\
+Java 21, Spring Boot 4, Maven & Socle des deux services. \\
 Spring Web & API REST. \\
 Spring Data JPA, PostgreSQL, Flyway & Persistance et migrations. \\
 Spring Security, JWT & Authentification et rôles. \\
@@ -279,7 +280,7 @@ Deux services, pas plus en V1.
 
 \begin{itemize}
   \item \field{game-service} : comptes, parties, coups, persistance, publication.
-  \item \field{live-service} : consommation Kafka, push temps réel, rejeu.
+  \item \field{live-service} : consommation Kafka et push temps réel en SSE. Le rejeu passe par \field{GET /games/\{code\}/moves} sur \field{game-service}.
 \end{itemize}
 
 Le serveur n'accepte un coup que s'il figure dans les coups légaux renvoyés par chesslib.
@@ -288,7 +289,7 @@ Le serveur n'accepte un coup que s'il figure dans les coups légaux renvoyés pa
 \begin{itemize}
   \item Angular, TypeScript, Angular CLI.
   \item chessground pour l'échiquier, dans un composant Angular. Affichage et glisser-déposer uniquement. Il ne valide pas les règles.
-  \item Composants, services, routeur et HttpClient pour le REST. WebSocket ou SSE pour le direct.
+  \item Composants, services, routeur et HttpClient pour le REST. SSE (\field{EventSource}) pour le direct.
 \end{itemize}
 
 \subsection{Outillage}
@@ -333,7 +334,7 @@ Migrations uniquement via Flyway. Pas de \field{ddl-auto=update} en dehors d'un 
   \item \field{white\_user\_id} et \field{black\_user\_id}, vides jusqu'au join.
   \item \field{status} : \field{WAITING}, \field{IN\_PROGRESS}, \field{FINISHED}.
   \item \field{result} : \field{WHITE\_WIN}, \field{BLACK\_WIN}, \field{DRAW}, ou vide.
-  \item \field{end\_reason} : \field{CHECKMATE}, \field{STALEMATE}, \field{RESIGN}, ou vide.
+  \item \field{end\_reason} : \field{CHECKMATE}, \field{STALEMATE}, \field{RESIGNATION}, ou vide.
   \item \field{current\_fen}, \field{next\_move\_number} (démarre à 1), \field{created\_at}, \field{updated\_at}.
 \end{itemize}
 
@@ -378,7 +379,7 @@ Codes d'erreur stables, en JSON :
   \item \field{GAME\_NOT\_STARTED}, \field{GAME\_ALREADY\_FINISHED}, \field{GAME\_FULL}
 \end{itemize}
 
-Le flux pousse, après \field{move.played} et \field{game.ended}, le FEN, le coup, le numéro et le statut. CORS : origine du front local, puis l'URL de production.
+Le flux SSE (\field{GET /games/\{code\}/watch}, lecture seule, sans JWT : le code sert de secret de partage) relaie tels quels les messages \field{move.played} et \field{game.ended}. À chaque (ré)ouverture, le front recharge l'état par REST pour rattraper ce qu'il a manqué. CORS : origine du front local, puis l'URL de production.
 
 %---------------------------------------------------------------------
 \section{Événements Kafka}
@@ -390,7 +391,7 @@ Topic \field{chess.game.events}. Clé \field{gameId}. Un type par message.
 Type & Contenu \\
 \midrule
 \field{move.played} & gameId, moveNumber, uci, san, fenAfter, playedBy. \\
-\field{game.ended} & gameId, result, endReason, finalFen. \\
+\field{game.ended} & gameId, moveNumber, result, endReason, finalFen. \\
 \field{player.joined} & gameId, color, userId. \\
 \bottomrule
 \end{tabularx}
@@ -484,13 +485,14 @@ Les comptes de démo sont dans le README. Aucun secret réel dans Git.
 %---------------------------------------------------------------------
 \section{Intégration continue}
 
-GitHub Actions, à chaque push :
+GitHub Actions (\field{.github/workflows/ci.yml}), trois jobs à chaque push et pull request :
 
 \begin{itemize}
-  \item \field{mvn test} sur les deux services. Testcontainers a besoin de Docker sur le runner.
-  \item \field{npm ci}, puis \field{ng build} du front Angular.
-  \item Build des images Docker, sans publication tant que le déploiement n'existe pas.
+  \item \field{./mvnw test} sur \field{game-service} et \field{live-service}. Testcontainers utilise le Docker du runner.
+  \item \field{npm ci}, \field{ng build}, puis \field{ng test} en Chrome headless sans bac à sable pour le front Angular.
 \end{itemize}
+
+À venir : build des images Docker, sans publication tant que le déploiement n'existe pas.
 
 %---------------------------------------------------------------------
 \section{Déploiement}
