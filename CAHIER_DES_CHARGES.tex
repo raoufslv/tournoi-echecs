@@ -1,0 +1,576 @@
+% Cahier des charges — Tournoi d'échecs en direct
+% Compiler : pdfLaTeX
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\usepackage[
+  a4paper,
+  top=2.15cm,
+  bottom=2.15cm,
+  left=2.15cm,
+  right=2.15cm,
+  headheight=22pt
+]{geometry}
+
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\definecolor{ink}{HTML}{1C1C1C}
+\definecolor{muted}{HTML}{6A6A6A}
+\definecolor{line}{HTML}{E6E6E6}
+\definecolor{soft}{HTML}{F4F4F4}
+\definecolor{rule}{HTML}{111111}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=ink,
+  urlcolor=ink,
+  pdftitle={Cahier des charges — Tournoi d'échecs en direct},
+  pdfauthor={Raouf Abdallah}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{muted}Tournoi d'échecs en direct}
+\fancyhead[R]{\small\color{muted}Cahier des charges}
+\fancyfoot[C]{\small\color{muted}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{%
+  \hbox to\headwidth{\color{line}\leaders\hrule height \headrulewidth\hfill}%
+}
+\renewcommand{\footrulewidth}{0pt}
+
+\fancypagestyle{opening}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\small\color{muted}\thepage}%
+  \renewcommand{\headrulewidth}{0pt}%
+}
+
+\setlist[itemize]{leftmargin=1.15em,itemsep=2.5pt,topsep=4pt,parsep=0pt,partopsep=0pt}
+\setlist[enumerate]{leftmargin=1.35em,itemsep=3pt,topsep=4pt,parsep=0pt,partopsep=0pt}
+
+\titleformat{\section}
+  {\large\bfseries\color{ink}}
+  {\thesection}
+  {0.75em}
+  {}
+  [\vspace{2pt}{\color{line}\titlerule[0.4pt]}]
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{ink}}
+  {\thesubsection}
+  {0.6em}
+  {}
+\titlespacing*{\section}{0pt}{16pt}{8pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+
+\setcounter{tocdepth}{1}
+\setcounter{secnumdepth}{2}
+
+\newcommand{\panel}[2]{%
+  \par\vspace{6pt}%
+  {\setlength{\fboxsep}{9pt}%
+   \noindent\colorbox{soft}{%
+     \parbox{\dimexpr\linewidth-2\fboxsep\relax}{#1\small #2}%
+   }}%
+  \par\vspace{6pt}%
+}
+\newcommand{\softbox}[1]{\panel{\ttfamily}{#1}}
+\newcommand{\quotebox}[1]{\panel{}{#1}}
+
+\newcommand{\field}[1]{{\ttfamily #1}}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}p{4.15cm}}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45em}
+\raggedbottom
+\color{ink}
+
+\begin{document}
+\thispagestyle{opening}
+
+{\small\color{muted}Cahier des charges \textperiodcentered\ octobre 2026}
+
+\vspace{8pt}
+{\fontsize{24}{28}\selectfont\bfseries Tournoi d'échecs en direct\par}
+
+\vspace{6pt}
+{\large\color{muted}
+Partie en direct, spectateur et rejeu.\\
+Java, Spring Boot, PostgreSQL, Kafka, Angular.\par}
+
+\vspace{10pt}
+{\color{rule}\rule{\linewidth}{0.6pt}}
+
+\vspace{8pt}
+\begin{tabularx}{\linewidth}{@{}p{2.3cm} L@{}}
+Statut & Cadrage validé. Développement pas encore commencé. \\
+Auteur & Raouf Abdallah \\
+Document & Référence du projet, du cadrage jusqu'à la mise en ligne. \\
+\end{tabularx}
+
+\vspace{8pt}
+\tableofcontents
+\vspace{4pt}
+
+%---------------------------------------------------------------------
+\section{Contexte}
+
+On joue souvent aux échecs entre amis. L'idée de départ est un petit tournoi le même soir, avec un suivi clair pour tout le monde.
+
+Des plateformes existantes couvrent déjà ce besoin de jeu.
+
+\begin{tabularx}{\linewidth}{@{}Y L@{}}
+\toprule
+Plateforme & Ce qu'elle permet \\
+\midrule
+Lichess & Tournoi privé gratuit : arène avec mot de passe, ou équipe puis Swiss / arène. \\
+Chess.com & Shareable Tournament, lien privé, Swiss ou arène. En général au moins 4 joueurs pour une arène live. \\
+Chessly & Apprentissage. Pas d'organisation de tournois. \\
+\bottomrule
+\end{tabularx}
+
+Ce projet ne cherche pas à remplacer Lichess. Il sert à concevoir un produit temps réel, et à monter en compétence sur la stack la plus présente dans les offres junior en France : Java, Spring Boot, PostgreSQL, Docker, tests et Kafka.
+
+Ce sujet plutôt qu'un CRUD, parce que :
+
+\begin{itemize}
+  \item un seul coup est valide à la fois ;
+  \item plusieurs écrans restent synchronisés : Blancs, Noirs, spectateur ;
+  \item un coup illégal ou hors tour est refusé par le serveur ;
+  \item la partie se rejoue depuis un journal d'événements.
+\end{itemize}
+
+%---------------------------------------------------------------------
+\section{Objectifs}
+
+\subsection{Produit}
+\begin{itemize}
+  \item Deux amis jouent une partie en direct dans le navigateur.
+  \item Un troisième écran suit la partie sans pouvoir jouer.
+  \item Un coup illégal est refusé.
+  \item La partie se rejoue coup par coup depuis l'historique.
+  \item Plus tard : un mini-tournoi entre amis, avec invitation, parties et classement.
+\end{itemize}
+
+\subsection{Technique}
+Ce que le CV et l'entretien doivent pouvoir défendre, une fois le projet livré.
+
+\begin{itemize}
+  \item API Java 21 / Spring Boot 3, source de vérité côté serveur.
+  \item PostgreSQL, migrations Flyway, unicité du numéro de coup.
+  \item Spring Security et JWT, rôles joueur et spectateur.
+  \item Kafka, avec outbox dans la même transaction que le coup.
+  \item Second service qui consomme Kafka et pousse le direct.
+  \item Docker Compose, JUnit, Mockito, Testcontainers, GitHub Actions.
+  \item Front Angular et TypeScript qui affiche l'échiquier, sans décider si un coup est légal.
+\end{itemize}
+
+\subsection{Hors objectifs}
+\begin{itemize}
+  \item Moteur d'analyse : Stockfish, évaluation, flèches.
+  \item Classement Elo mondial, anti-triche, matchmaking public.
+  \item Kubernetes, Spring Cloud, gRPC, Elasticsearch, Keycloak.
+  \item Application mobile native.
+  \item Remplacer Chess.com ou Lichess.
+\end{itemize}
+
+%---------------------------------------------------------------------
+\section{Utilisateurs et rôles}
+
+\begin{tabularx}{\linewidth}{@{}Y L@{}}
+\toprule
+Rôle & Peut \\
+\midrule
+Visiteur & Créer un compte, se connecter. \\
+Joueur Blanc ou Noir & Rejoindre sa partie, jouer uniquement à son tour. \\
+Spectateur & Ouvrir une partie avec son code, suivre les coups, lancer le rejeu. \\
+Organisateur (V2) & Créer un tournoi, inviter des amis, voir le classement. \\
+\bottomrule
+\end{tabularx}
+
+Des comptes de démo sont prévus pour l'entretien : deux joueurs et un spectateur. Les identifiants vivent dans le README, pas dans ce document.
+
+%---------------------------------------------------------------------
+\section{Périmètre}
+
+\subsection{V1, partie en direct}
+Obligatoire avant le tournoi.
+
+\begin{itemize}
+  \item Inscription et connexion JWT.
+  \item Créer une partie, obtenir un code, le second joueur rejoint.
+  \item Échiquier, coup envoyé au serveur, diffusion aux deux joueurs.
+  \item Refus : coup illégal, mauvais tour, spectateur, double envoi du même numéro.
+  \item Fin de partie : mat, pat, abandon.
+  \item Promotion du pion : le joueur choisit la pièce, le serveur l'applique.
+  \item Spectateur en lecture seule, rejeu ordonné.
+  \item Lancement local avec Docker Compose, README avec schéma et parcours de démo.
+\end{itemize}
+
+\subsection{V2, tournoi entre amis}
+Uniquement quand la V1 est stable.
+
+\begin{itemize}
+  \item Créer un tournoi, inviter par code.
+  \item Rattacher les parties au tournoi.
+  \item Appariement simple : Swiss léger ou arène à 4 joueurs. Pas de round robin aller-retour.
+  \item Page de classement : points et parties jouées.
+\end{itemize}
+
+\subsection{Reporté}
+\begin{itemize}
+  \item Contrôle du temps (blitz, pendule), après une V1 déjà solide.
+  \item Chat, notifications e-mail.
+  \item Plusieurs parties simultanées au-delà du besoin de démo.
+\end{itemize}
+
+%---------------------------------------------------------------------
+\section{Parcours de démo}
+
+Trois fenêtres côte à côte.
+
+\begin{enumerate}
+  \item Les Blancs jouent un coup.
+  \item Les Noirs le voient apparaître.
+  \item Le spectateur le voit aussi, et ne peut pas jouer.
+  \item Un coup illégal est refusé : l'échiquier ne change pas.
+  \item Le bouton Rejouer reconstruit la partie coup par coup.
+\end{enumerate}
+
+Si l'on demande pourquoi ce projet :
+
+\quotebox{%
+On joue souvent entre amis. Organiser notre tournoi était l'occasion. Lichess et Chess.com savent déjà le faire gratuitement. L'objectif est de concevoir le produit : validation côté serveur, événements, persistance, spectateur et rejeu, sur une stack très présente dans les offres Java en France.%
+}
+
+%---------------------------------------------------------------------
+\section{Stack}
+
+\subsection{Backend}
+\begin{tabularx}{\linewidth}{@{}Y L@{}}
+\toprule
+Élément & Rôle \\
+\midrule
+Java 21, Spring Boot 3, Maven & Socle des deux services. \\
+Spring Web & API REST. \\
+Spring Data JPA, PostgreSQL, Flyway & Persistance et migrations. \\
+Spring Security, JWT & Authentification et rôles. \\
+Bean Validation & Entrées de l'API. \\
+Apache Kafka & Faits de jeu, après l'écriture en base. \\
+chesslib & Règles, FEN, coups légaux, mat et pat. \\
+\bottomrule
+\end{tabularx}
+
+Deux services, pas plus en V1.
+
+\begin{itemize}
+  \item \field{game-service} : comptes, parties, coups, persistance, publication.
+  \item \field{live-service} : consommation Kafka, push temps réel, rejeu.
+\end{itemize}
+
+Le serveur n'accepte un coup que s'il figure dans les coups légaux renvoyés par chesslib.
+
+\subsection{Frontend}
+\begin{itemize}
+  \item Angular, TypeScript, Angular CLI.
+  \item chessground pour l'échiquier, dans un composant Angular. Affichage et glisser-déposer uniquement. Il ne valide pas les règles.
+  \item Composants, services, routeur et HttpClient pour le REST. WebSocket ou SSE pour le direct.
+\end{itemize}
+
+\subsection{Outillage}
+Docker, Docker Compose, JUnit 5, Mockito, Testcontainers, GitHub Actions. Éditeur : Cursor, avec les extensions Java et Spring Boot.
+
+OpenAPI et Redis restent optionnels. Redis n'entre que si la présence ou les sessions deviennent un vrai problème.
+
+%---------------------------------------------------------------------
+\section{Architecture}
+
+\begin{tabularx}{\linewidth}{@{}Y L@{}}
+\toprule
+Composant & Rôle \\
+\midrule
+Navigateur & Angular et chessground. Propose un coup, affiche le FEN reçu. \\
+game-service & Décide si le coup est légal. Écrit la partie, le coup et l'outbox. \\
+PostgreSQL & Source de vérité : parties, coups, outbox. \\
+Kafka & Topic \field{chess.game.events}, clé \field{gameId}. \\
+live-service & Consomme les événements et pousse les trois écrans. \\
+\bottomrule
+\end{tabularx}
+
+\begin{itemize}
+  \item Le coup, la mise à jour de la partie et la ligne d'outbox sont dans la même transaction.
+  \item Le publisher envoie l'outbox vers Kafka après le commit. Si Kafka est indisponible, le coup reste en base et sera republié.
+  \item \field{live-service} ne valide pas les règles. Il diffuse ce que \field{game-service} a déjà accepté.
+  \item L'ordre par partie vient de \field{move\_number} en base et de la clé Kafka.
+  \item Pas de troisième service tant que ces deux rôles restent clairs.
+\end{itemize}
+
+%---------------------------------------------------------------------
+\section{Modèle de données}
+
+Migrations uniquement via Flyway. Pas de \field{ddl-auto=update} en dehors d'un essai local jetable.
+
+\subsection{users}
+\field{id}, \field{email} unique, \field{password\_hash}, \field{display\_name}, \field{created\_at}.
+
+\subsection{games}
+\begin{itemize}
+  \item \field{id}, \field{code} unique, court, partageable.
+  \item \field{white\_user\_id} et \field{black\_user\_id}, vides jusqu'au join.
+  \item \field{status} : \field{WAITING}, \field{IN\_PROGRESS}, \field{FINISHED}.
+  \item \field{result} : \field{WHITE\_WIN}, \field{BLACK\_WIN}, \field{DRAW}, ou vide.
+  \item \field{end\_reason} : \field{CHECKMATE}, \field{STALEMATE}, \field{RESIGN}, ou vide.
+  \item \field{current\_fen}, \field{next\_move\_number} (démarre à 1), \field{created\_at}, \field{updated\_at}.
+\end{itemize}
+
+\subsection{moves}
+\field{id}, \field{game\_id}, \field{move\_number}, \field{player\_color} (\field{WHITE} ou \field{BLACK}), \field{uci} (\field{e2e4}, \field{e7e8q} pour une promotion), \field{san} (\field{e4}, \field{e8=Q}), \field{fen\_after}, \field{created\_at}.
+
+Contrainte unique sur \field{(game\_id, move\_number)}.
+
+\subsection{outbox\_events}
+\field{id}, \field{game\_id}, \field{event\_type}, \field{payload} JSON, \field{move\_number}, \field{created\_at}, \field{published\_at}. Ce dernier reste vide tant que Kafka n'a pas acquitté.
+
+\subsection{V2 uniquement}
+\field{tournaments} (\field{id}, \field{name}, \field{code}, \field{status}, \field{created\_by}), \field{tournament\_participants} (\field{tournament\_id}, \field{user\_id}, \field{score}), et \field{games.tournament\_id} nullable.
+
+%---------------------------------------------------------------------
+\section{API}
+
+Authentification : \field{Authorization: Bearer <jwt>}.
+
+\begin{tabularx}{\linewidth}{@{}p{2.05cm} L L@{}}
+\toprule
+Méthode & Chemin & Effet \\
+\midrule
+POST & \field{/auth/register} & Crée un compte. \\
+POST & \field{/auth/login} & Renvoie un JWT. \\
+POST & \field{/games} & Crée une partie et son code. Blancs par défaut. \\
+POST & \field{/games/\{code\}/\allowbreak join} & Le second joueur prend la couleur libre. \\
+GET & \field{/games/\{code\}} & FEN, statut, joueurs, dernier coup. \\
+POST & \field{/games/\{code\}/\allowbreak moves} & Joue un coup. Corps : \field{uci}. \\
+POST & \field{/games/\{code\}/\allowbreak resign} & Abandon du joueur authentifié. \\
+GET & \field{/games/\{code\}/\allowbreak moves} & Historique ordonné, pour le rejeu. \\
+\bottomrule
+\end{tabularx}
+
+\vspace{4pt}
+Le spectateur s'abonne au flux du \field{live-service}, par \field{gameId} ou par code, sans être assis à l'échiquier.
+
+Codes d'erreur stables, en JSON :
+
+\begin{itemize}
+  \item \field{NOT\_YOUR\_TURN}, \field{ILLEGAL\_MOVE}, \field{SPECTATOR\_CANNOT\_MOVE}
+  \item \field{GAME\_NOT\_STARTED}, \field{GAME\_ALREADY\_FINISHED}, \field{GAME\_FULL}
+\end{itemize}
+
+Le flux pousse, après \field{move.played} et \field{game.ended}, le FEN, le coup, le numéro et le statut. CORS : origine du front local, puis l'URL de production.
+
+%---------------------------------------------------------------------
+\section{Événements Kafka}
+
+Topic \field{chess.game.events}. Clé \field{gameId}. Un type par message.
+
+\begin{tabularx}{\linewidth}{@{}Y L@{}}
+\toprule
+Type & Contenu \\
+\midrule
+\field{move.played} & gameId, moveNumber, uci, san, fenAfter, playedBy. \\
+\field{game.ended} & gameId, result, endReason, finalFen. \\
+\field{player.joined} & gameId, color, userId. \\
+\bottomrule
+\end{tabularx}
+
+Le consumer tolère un message déjà vu (rejeu d'offset, republication de l'outbox). Appliquer un coup déjà connu ne duplique pas l'état.
+
+%---------------------------------------------------------------------
+\section{Règles côté serveur}
+
+À chaque \field{POST /moves} :
+
+\begin{enumerate}
+  \item Charger la partie et la verrouiller pour la transaction.
+  \item Vérifier le statut \field{IN\_PROGRESS}, l'identité du joueur, et la couleur attendue.
+  \item Charger le FEN dans chesslib.
+  \item N'accepter le coup que s'il est dans \field{legalMoves()}. Ne pas se fier à \field{isMoveLegal} seul. Test obligatoire : un pion qui prend droit devant est refusé.
+  \item Appliquer le coup, calculer le FEN suivant, détecter mat et pat.
+  \item Insérer \field{moves} avec le numéro courant. La contrainte unique protège deux requêtes simultanées.
+  \item Mettre à jour \field{games} et insérer \field{outbox\_events}.
+  \item Commit. La publication Kafka se fait après, par le publisher.
+\end{enumerate}
+
+Promotion : l'UCI contient la pièce, par exemple \field{e7e8q}. Sans pièce de promotion sur la dernière rangée, la réponse est \field{ILLEGAL\_MOVE} et le front redemande le choix.
+
+%---------------------------------------------------------------------
+\section{Frontend}
+
+Écrans de la V1 :
+
+\begin{itemize}
+  \item Connexion et inscription.
+  \item Accueil : créer une partie, rejoindre avec un code, suivre avec un code.
+  \item Partie : composant chessground, liste des coups, statut (à vous, à l'adversaire, terminée).
+  \item Spectateur : même échiquier, aucun envoi de coup, badge spectateur.
+  \item Rejeu : précédent / suivant, à partir de \field{GET /moves}.
+\end{itemize}
+
+Le front applique le FEN renvoyé par le serveur. Il peut prévisualiser les cases d'arrivée. Un refus serveur annule le coup visuel.
+
+%---------------------------------------------------------------------
+\section{Qualité et tests}
+
+La V1 est présentable quand ces parcours sont couverts. Pas de couverture à 100 \%.
+
+\begin{itemize}
+  \item Unitaire : coup illégal, mauvais tour, spectateur, partie déjà finie, promotion.
+  \item Concurrence : deux \field{POST /moves} en parallèle. Un seul gagne, un seul \field{move\_number}.
+  \item Intégration Testcontainers (PostgreSQL et Kafka) : trois coups produisent trois événements dans l'ordre, et le consumer reconstruit le même FEN que la base.
+  \item Le README explique comment lancer les tests.
+\end{itemize}
+
+%---------------------------------------------------------------------
+\section{Dépôt et construction}
+
+\softbox{%
+tournoi-echecs/\\
+\quad CAHIER\_DES\_CHARGES.tex\\
+\quad README.md\\
+\quad docker-compose.yml\\
+\quad game-service/\\
+\quad live-service/\\
+\quad frontend/\\
+\quad .github/workflows/ci.yml%
+}
+
+L'infrastructure locale est en place : PostgreSQL, Kafka et le topic \field{chess.game.events}. Avancement : \field{game-service} (comptes, JWT, parties, coups, outbox et publisher Kafka), \field{live-service} (consumer Kafka et flux SSE) et le front Angular (jeu en direct, historique SAN, rejeu pas à pas, abandon) existent, et la CI GitHub Actions teste les trois modules. Le rejeu s'appuie sur \field{GET /games/\{code\}/moves}, pas sur le flux. Restent le tournoi V2, la mise en ligne et le monitoring. L'ordre de construction ne s'inverse pas.
+
+\begin{enumerate}
+  \item Infrastructure : Docker Compose, PostgreSQL, Kafka, topic.
+  \item Coup légal en REST et PostgreSQL.
+  \item Front Angular qui joue.
+  \item Outbox branché sur le Kafka déjà lancé.
+  \item \field{live-service}, spectateur, rejeu.
+  \item Tests d'intégration et CI.
+  \item Tournoi V2.
+  \item Mise en ligne.
+  \item Monitoring.
+\end{enumerate}
+
+Durée indicative : 3 à 4 semaines à mi-temps, ou 2 semaines en continu, une fois Java et Spring en main.
+
+%---------------------------------------------------------------------
+\section{Environnement local}
+
+Prérequis : JDK 21, Maven, Node.js LTS, Docker Desktop, Git.
+
+\field{docker compose up} lance aujourd'hui PostgreSQL et Kafka. \field{game-service} et \field{live-service} se lancent à part avec \field{./mvnw spring-boot:run} et rejoindront le même Compose au moment du déploiement. Le front tournera avec \field{ng serve} et un proxy vers les API locales.
+
+Les comptes de démo sont dans le README. Aucun secret réel dans Git.
+
+%---------------------------------------------------------------------
+\section{Intégration continue}
+
+GitHub Actions, à chaque push :
+
+\begin{itemize}
+  \item \field{mvn test} sur les deux services. Testcontainers a besoin de Docker sur le runner.
+  \item \field{npm ci}, puis \field{ng build} du front Angular.
+  \item Build des images Docker, sans publication tant que le déploiement n'existe pas.
+\end{itemize}
+
+%---------------------------------------------------------------------
+\section{Déploiement}
+
+Cible de démo : un VPS (Hetzner, Scaleway ou OVH, environ 5 à 15 euros par mois) avec Docker Compose. Le front statique est sur Vercel ou Cloudflare Pages.
+
+Sur le VPS :
+
+\begin{itemize}
+  \item Compose de production : PostgreSQL avec volume, Kafka, les deux services.
+  \item Reverse proxy Caddy ou Nginx, HTTPS Let's Encrypt.
+  \item PostgreSQL et Kafka non exposés sur Internet.
+  \item Secret JWT et mots de passe uniquement en variables d'environnement.
+  \item CORS limité à l'URL du front. WebSocket ou SSE autorisés par le proxy.
+\end{itemize}
+
+Une fois la V1 stable, GitHub Actions construit les images puis déploie par SSH. Pas de Kubernetes.
+
+Un nom de domaine est optionnel. Une IP ou un sous-domaine suffit pour l'entretien. Un domaine est plus propre pour le CV.
+
+%---------------------------------------------------------------------
+\section{Monitoring}
+
+Niveau adapté à une démo, pas à un système d'information bancaire.
+
+\begin{itemize}
+  \item Spring Actuator sur les deux services : santé du processus, de PostgreSQL et de Kafka.
+  \item Le reverse proxy ne publie pas les endpoints sensibles (environnement, heap dump).
+  \item Journaux avec \field{gameId} et \field{moveNumber}. Info sur coup accepté, coup refusé, fin de partie, échec de publication.
+  \item Pas de mot de passe, pas de JWT complet dans les logs.
+  \item Métriques : coups acceptés et refusés, lag du consumer, taille de l'outbox non publiée.
+\end{itemize}
+
+Sur le VPS : \field{docker compose logs}, healthchecks Compose, et une vérification manuelle avant une démo.
+
+Sauvegarde : dump PostgreSQL quotidien tant que des parties comptent. Kafka n'est pas la source de vérité. La base et l'outbox le sont. Si le topic est perdu, on republie l'outbox.
+
+Incident à savoir expliquer : Kafka tombe après le commit. Le coup est en base, \field{published\_at} reste vide, le publisher reprend, le spectateur rattrape. Le joueur a déjà sa réponse HTTP.
+
+%---------------------------------------------------------------------
+\section{Sécurité}
+
+Niveau projet personnel.
+
+\begin{itemize}
+  \item Mots de passe hashés avec BCrypt.
+  \item JWT signé, expiration courte, secret hors de Git.
+  \item Un joueur ne joue que sa couleur. Le spectateur n'a pas de route de coup.
+  \item Validation des entrées : UCI, longueur du code partie.
+  \item Fichier \field{.env} ignoré par Git.
+\end{itemize}
+
+Hors V1 : OAuth, double authentification, chiffrement du trafic interne au-delà du réseau Docker.
+
+%---------------------------------------------------------------------
+\section{Critères de fin}
+
+La V1 est terminée quand :
+
+\begin{itemize}
+  \item la démo des trois écrans marche sur une machine propre, avec le README ;
+  \item le coup illégal et le double envoi sont couverts par des tests ;
+  \item \field{docker compose up} suffit pour l'API, la base et Kafka ;
+  \item le README explique l'architecture en un schéma ;
+  \item une URL publique permet de refaire la démo sans le PC du développeur.
+\end{itemize}
+
+La V2 est terminée quand quatre comptes jouent un mini-tournoi et qu'un classement s'affiche.
+
+%---------------------------------------------------------------------
+\section{Formulation CV}
+
+À n'écrire qu'une fois la démo réelle.
+
+\begin{itemize}
+  \item Partie d'échecs en direct : API Java 21 / Spring Boot, validation des coups côté serveur, front Angular.
+  \item Journal des coups publié sur Kafka via un outbox, ordre garanti par un numéro de coup.
+  \item Spectateur et rejeu reconstruits depuis les événements, tests Testcontainers sur les coups illégaux.
+\end{itemize}
+
+Java, Spring et Kafka n'entrent dans les compétences maîtrisées qu'à ce moment-là. Le projet reste dans une section Projets, pas dans les expériences professionnelles.
+
+\end{document}

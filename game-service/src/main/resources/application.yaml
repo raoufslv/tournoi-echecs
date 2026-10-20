@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: game-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chess
+    username: chess
+    password: chess
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        max.block.ms: 5000
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+app:
+  kafka:
+    topic: chess.game.events
+  outbox:
+    publisher:
+      enabled: true
+      delay-ms: 500
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
+  jwt:
+    # Valeur de developpement uniquement. En production : variable JWT_SECRET (32 caracteres minimum).
+    secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+    ttl-minutes: 60
