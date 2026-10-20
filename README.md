@@ -1,6 +1,6 @@
 # Tournoi d'échecs en direct
 
-![CI](https://github.com/<utilisateur>/<depot>/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/raoufslv/tournoi-echecs/actions/workflows/ci.yml/badge.svg)](https://github.com/raoufslv/tournoi-echecs/actions/workflows/ci.yml)
 
 Infrastructure (PostgreSQL, Kafka), `game-service` (Spring Boot), `live-service` (Spring Boot) et `frontend` (Angular).
 
