@@ -12,4 +12,6 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, Long> {
 
 	List<OutboxEvent> findByGameIdOrderByIdAsc(Long gameId);
 
+	List<OutboxEvent> findByTournamentIdOrderByIdAsc(Long tournamentId);
+
 }

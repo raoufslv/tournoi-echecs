@@ -41,8 +41,10 @@ public class GameEventListener {
 			log.warn("Message ignore, type ou code manquant");
 			return;
 		}
-		int sent = registry.broadcast(code, type, payload);
-		log.debug("{} pour {} envoye a {} spectateur(s)", type, code, sent);
+		// Les evenements de tournoi vont aux spectateurs du tournoi, les autres a ceux de la partie.
+		String channel = type.startsWith("tournament.") ? WatchRegistry.tournamentChannel(code) : code;
+		int sent = registry.broadcast(channel, type, payload);
+		log.debug("{} pour {} envoye a {} spectateur(s)", type, channel, sent);
 	}
 
 }

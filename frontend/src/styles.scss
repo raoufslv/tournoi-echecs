@@ -83,6 +83,30 @@ button.secondary:hover:not(:disabled) {
   background: #eaf0f8;
 }
 
+/* Lien qui a l'apparence d'un bouton. */
+a.button {
+  display: inline-block;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+
+a.button:hover {
+  background: var(--accent-dark);
+}
+
+a.button.secondary {
+  background: transparent;
+  color: var(--accent);
+}
+
+a.button.secondary:hover {
+  background: #eaf0f8;
+}
+
 .error {
   color: var(--danger);
   font-size: 0.9rem;

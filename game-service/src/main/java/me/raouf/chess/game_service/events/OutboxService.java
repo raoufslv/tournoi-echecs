@@ -28,4 +28,9 @@ public class OutboxService {
 		outbox.save(new OutboxEvent(gameId, eventType, mapper.writeValueAsString(event), moveNumber));
 	}
 
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void recordTournament(long tournamentId, String eventType, Object event) {
+		outbox.save(OutboxEvent.forTournament(tournamentId, eventType, mapper.writeValueAsString(event)));
+	}
+
 }

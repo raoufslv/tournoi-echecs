@@ -117,7 +117,7 @@ Java, Spring Boot, PostgreSQL, Kafka, Angular.\par}
 
 \vspace{8pt}
 \begin{tabularx}{\linewidth}{@{}p{2.3cm} L@{}}
-Statut & V1 livrée (partie en direct, spectateur, historique, rejeu, abandon, CI). Restent le tournoi V2, la mise en ligne et le monitoring. \\
+Statut & V1 et V2 livrées (partie en direct, spectateur, historique, rejeu, abandon, CI, tournoi suisse). Restent la mise en ligne et le monitoring. \\
 Auteur & Raouf Abdallah \\
 Document & Référence du projet, du cadrage jusqu'à la mise en ligne. \\
 \end{tabularx}
@@ -221,14 +221,15 @@ Obligatoire avant le tournoi.
   \item Lancement local avec Docker Compose, README avec schéma et parcours de démo.
 \end{itemize}
 
-\subsection{V2, tournoi entre amis}
-Uniquement quand la V1 est stable.
+\subsection{V2, tournoi entre amis (livrée)}
 
 \begin{itemize}
-  \item Créer un tournoi, inviter par code.
-  \item Rattacher les parties au tournoi.
-  \item Appariement simple : Swiss léger ou arène à 4 joueurs. Pas de round robin aller-retour.
-  \item Page de classement : points et parties jouées.
+  \item Créer un tournoi et inviter par code ; l'organisateur est inscrit d'office. 4 à 8 joueurs.
+  \item Format retenu : suisse léger, 3 à 5 rondes, ramenées à « joueurs moins un » au lancement si besoin. Pas d'arène (elle demande une pendule) ni de toutes-rondes.
+  \item Les parties sont créées par le serveur à chaque ronde, avec leurs deux joueurs et leurs couleurs. La ronde suivante démarre seule quand la dernière partie de la ronde se termine.
+  \item Points : victoire 1, nulle 0,5, défaite 0, bye 1 (au plus un par joueur). Départage : Buchholz.
+  \item Appariement : ronde 1 au hasard ; ensuite tri par score, sans revanche tant qu'un autre appariement existe (retour arrière), couleurs équilibrées.
+  \item Page de tournoi : inscrits, classement, rondes avec lien vers chaque partie, vainqueur, mise à jour en direct.
 \end{itemize}
 
 \subsection{Reporté}
@@ -344,10 +345,14 @@ Migrations uniquement via Flyway. Pas de \field{ddl-auto=update} en dehors d'un 
 Contrainte unique sur \field{(game\_id, move\_number)}.
 
 \subsection{outbox\_events}
-\field{id}, \field{game\_id}, \field{event\_type}, \field{payload} JSON, \field{move\_number}, \field{created\_at}, \field{published\_at}. Ce dernier reste vide tant que Kafka n'a pas acquitté.
+\field{id}, \field{game\_id} (nullable), \field{tournament\_id} (nullable : exactement un des deux est renseigné), \field{event\_type}, \field{payload} JSON, \field{move\_number}, \field{created\_at}, \field{published\_at}. Ce dernier reste vide tant que Kafka n'a pas acquitté.
 
-\subsection{V2 uniquement}
-\field{tournaments} (\field{id}, \field{name}, \field{code}, \field{status}, \field{created\_by}), \field{tournament\_participants} (\field{tournament\_id}, \field{user\_id}, \field{score}), et \field{games.tournament\_id} nullable.
+\subsection{Tournoi (V2)}
+\field{tournaments} : \field{id}, \field{code} unique, \field{name}, \field{status} (\field{REGISTRATION}, \field{IN\_PROGRESS}, \field{FINISHED}), \field{created\_by}, \field{rounds\_total}, \field{current\_round}, \field{created\_at}.
+
+\field{tournament\_participants} : \field{id}, \field{tournament\_id}, \field{user\_id}, \field{half\_points} (score en demi-points : victoire 2, nulle 1, pour éviter les décimaux), \field{bye\_round} nullable, \field{joined\_at}. Unique sur \field{(tournament\_id, user\_id)}.
+
+\field{games.tournament\_id} et \field{games.round} sont nullables.
 
 %---------------------------------------------------------------------
 \section{API}
@@ -366,6 +371,10 @@ GET & \field{/games/\{code\}} & FEN, statut, joueurs, dernier coup. \\
 POST & \field{/games/\{code\}/\allowbreak moves} & Joue un coup. Corps : \field{uci}. \\
 POST & \field{/games/\{code\}/\allowbreak resign} & Abandon du joueur authentifié. \\
 GET & \field{/games/\{code\}/\allowbreak moves} & Historique ordonné, pour le rejeu. \\
+POST & \field{/tournaments} & Crée un tournoi (\field{name}, \field{rounds} de 3 à 5). L'auteur est organisateur et premier inscrit. \\
+GET & \field{/tournaments/\{code\}} & Tournoi, classement (rang, points, Buchholz) et rondes avec leurs parties. \\
+POST & \field{/tournaments/\{code\}/\allowbreak join} & Inscription avant le lancement, 8 joueurs maximum. \\
+POST & \field{/tournaments/\{code\}/\allowbreak start} & Lance la ronde 1 (organisateur, 4 joueurs minimum). \\
 \bottomrule
 \end{tabularx}
 
@@ -377,14 +386,16 @@ Codes d'erreur stables, en JSON :
 \begin{itemize}
   \item \field{NOT\_YOUR\_TURN}, \field{ILLEGAL\_MOVE}, \field{SPECTATOR\_CANNOT\_MOVE}
   \item \field{GAME\_NOT\_STARTED}, \field{GAME\_ALREADY\_FINISHED}, \field{GAME\_FULL}
+  \item \field{TOURNAMENT\_NOT\_FOUND}, \field{TOURNAMENT\_NOT\_OPEN}, \field{TOURNAMENT\_FULL}, \field{ALREADY\_REGISTERED}
+  \item \field{NOT\_ORGANIZER}, \field{NOT\_ENOUGH\_PLAYERS}, \field{TOURNAMENT\_ALREADY\_STARTED}
 \end{itemize}
 
-Le flux SSE (\field{GET /games/\{code\}/watch}, lecture seule, sans JWT : le code sert de secret de partage) relaie tels quels les messages \field{move.played} et \field{game.ended}. À chaque (ré)ouverture, le front recharge l'état par REST pour rattraper ce qu'il a manqué. CORS : origine du front local, puis l'URL de production.
+Le flux SSE (\field{GET /games/\{code\}/watch}, lecture seule, sans JWT : le code sert de secret de partage) relaie tels quels les messages \field{move.played} et \field{game.ended}. \field{GET /tournaments/\{code\}/watch} fait de même pour un tournoi, sur un canal distinct de celui des parties. À chaque (ré)ouverture, le front recharge l'état par REST pour rattraper ce qu'il a manqué. CORS : origine du front local, puis l'URL de production.
 
 %---------------------------------------------------------------------
 \section{Événements Kafka}
 
-Topic \field{chess.game.events}. Clé \field{gameId}. Un type par message.
+Topic \field{chess.game.events}. Clé \field{gameId}, ou \field{t-<tournamentId>} pour un événement de tournoi. Un type par message.
 
 \begin{tabularx}{\linewidth}{@{}Y L@{}}
 \toprule
@@ -393,6 +404,7 @@ Type & Contenu \\
 \field{move.played} & gameId, moveNumber, uci, san, fenAfter, playedBy. \\
 \field{game.ended} & gameId, moveNumber, result, endReason, finalFen. \\
 \field{player.joined} & gameId, color, userId. \\
+\field{tournament.updated} & tournamentId, code, status, currentRound. \\
 \bottomrule
 \end{tabularx}
 
@@ -427,7 +439,10 @@ Promotion : l'UCI contient la pièce, par exemple \field{e7e8q}. Sans pièce de 
   \item Partie : composant chessground, liste des coups, statut (à vous, à l'adversaire, terminée).
   \item Spectateur : même échiquier, aucun envoi de coup, badge spectateur.
   \item Rejeu : précédent / suivant, à partir de \field{GET /moves}.
+  \item Tournoi (V2) : création ou ouverture par code depuis l'accueil ; inscription, lancement par l'organisateur, classement, rondes avec « Jouer ma partie » ou « Suivre », vainqueur. La page de partie propose « Retour au tournoi ».
 \end{itemize}
+
+Le message \field{tournament.updated} est un simple signal : il est émis à chaque inscription, lancement, fin de partie de tournoi, changement de ronde et clôture. Le front ne lit pas son contenu, il recharge le tournoi par REST, donc l'ordre des messages n'a pas d'importance.
 
 Le front applique le FEN renvoyé par le serveur. Il peut prévisualiser les cases d'arrivée. Un refus serveur annule le coup visuel.
 
@@ -457,7 +472,7 @@ tournoi-echecs/\\
 \quad .github/workflows/ci.yml%
 }
 
-L'infrastructure locale est en place : PostgreSQL, Kafka et le topic \field{chess.game.events}. Avancement : \field{game-service} (comptes, JWT, parties, coups, outbox et publisher Kafka), \field{live-service} (consumer Kafka et flux SSE) et le front Angular (jeu en direct, historique SAN, rejeu pas à pas, abandon) existent, et la CI GitHub Actions teste les trois modules. Le rejeu s'appuie sur \field{GET /games/\{code\}/moves}, pas sur le flux. Restent le tournoi V2, la mise en ligne et le monitoring. L'ordre de construction ne s'inverse pas.
+L'infrastructure locale est en place : PostgreSQL, Kafka et le topic \field{chess.game.events}. Avancement : \field{game-service} (comptes, JWT, parties, coups, outbox et publisher Kafka), \field{live-service} (consumer Kafka et flux SSE) et le front Angular (jeu en direct, historique SAN, rejeu pas à pas, abandon) existent, et la CI GitHub Actions teste les trois modules. Le rejeu s'appuie sur \field{GET /games/\{code\}/moves}, pas sur le flux. Le tournoi suisse (V2) est livré : inscription par code, rondes et parties créées automatiquement, classement en direct. Restent la mise en ligne et le monitoring. L'ordre de construction ne s'inverse pas.
 
 \begin{enumerate}
   \item Infrastructure : Docker Compose, PostgreSQL, Kafka, topic.
@@ -560,7 +575,7 @@ La V1 est terminée quand :
   \item une URL publique permet de refaire la démo sans le PC du développeur.
 \end{itemize}
 
-La V2 est terminée quand quatre comptes jouent un mini-tournoi et qu'un classement s'affiche.
+La V2 est terminée quand quatre comptes jouent un mini-tournoi et qu'un classement s'affiche. C'est le cas : le test d'intégration \field{TournamentApiTests} joue un tournoi de trois rondes à quatre comptes jusqu'au classement final, et le même parcours a été vérifié contre PostgreSQL, Kafka et le flux SSE réels.
 
 %---------------------------------------------------------------------
 \section{Formulation CV}

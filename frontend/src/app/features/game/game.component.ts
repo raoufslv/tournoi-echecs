@@ -9,7 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { Game, MoveEntry } from '../../core/api.models';
 import { AuthService } from '../../core/auth.service';
@@ -29,7 +29,7 @@ const PROMOTIONS = [
 
 @Component({
   selector: 'app-game',
-  imports: [BoardComponent, MoveListComponent],
+  imports: [BoardComponent, MoveListComponent, RouterLink],
   template: `
     @if (game(); as g) {
       <section class="card">
@@ -42,6 +42,15 @@ const PROMOTIONS = [
             {{ copied() ? 'Copié !' : 'Copier le code' }}
           </button>
         </div>
+
+        @if (g.tournamentCode) {
+          <p class="tournament-link">
+            <a [routerLink]="['/tournament', g.tournamentCode]">← Retour au tournoi</a>
+            @if (g.round) {
+              <span> · ronde {{ g.round }}</span>
+            }
+          </p>
+        }
 
         <div class="players">
           <span [class.active]="g.status === 'IN_PROGRESS' && g.turn === 'WHITE'">
@@ -135,6 +144,11 @@ const PROMOTIONS = [
     .players .active {
       color: var(--text);
       font-weight: 600;
+    }
+    .tournament-link {
+      margin: 0 0 0.75rem;
+      font-size: 0.9rem;
+      color: var(--muted);
     }
     .promotion {
       display: flex;

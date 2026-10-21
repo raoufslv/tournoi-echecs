@@ -18,12 +18,18 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class WatchRegistry {
 
 	private static final Logger log = LoggerFactory.getLogger(WatchRegistry.class);
+	private static final String TOURNAMENT_PREFIX = "t:";
 
 	private final Map<String, Set<SseEmitter>> watchers = new ConcurrentHashMap<>();
 	private final long timeoutMs;
 
 	public WatchRegistry(@Value("${app.sse.timeout-ms:3600000}") long timeoutMs) {
 		this.timeoutMs = timeoutMs;
+	}
+
+	/** Canal d'un tournoi : prefixe pour ne jamais le confondre avec le code d'une partie. */
+	public static String tournamentChannel(String code) {
+		return TOURNAMENT_PREFIX + code;
 	}
 
 	public SseEmitter subscribe(String code) {

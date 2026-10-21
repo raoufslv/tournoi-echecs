@@ -47,7 +47,28 @@ public class Game {
 	@Column(name = "end_reason", length = 20)
 	private String endReason;
 
+	@ManyToOne(fetch = FetchType.EAGER)
+	@JoinColumn(name = "tournament_id")
+	private Tournament tournament;
+
+	@Column(name = "round")
+	private Integer round;
+
 	protected Game() {
+	}
+
+	public Tournament getTournament() {
+		return tournament;
+	}
+
+	public Integer getRound() {
+		return round;
+	}
+
+	/** Rattache la partie a une ronde de tournoi. */
+	public void attachToTournament(Tournament tournament, int round) {
+		this.tournament = tournament;
+		this.round = round;
 	}
 
 	public String getResult() {

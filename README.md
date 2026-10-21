@@ -18,7 +18,25 @@ Angular <-----SSE------ live-service :8081 <-------------+
 - `live-service` consomme le topic et pousse chaque événement en SSE aux spectateurs de la partie (`GET /games/{code}/watch`, lecture seule, sans JWT : le code de partie sert de secret de partage).
 - Chaque coup est enregistré avec sa notation SAN (`Nf3`, `Qh4#`). Une partie se termine par mat, pat (résultat enregistré automatiquement) ou abandon (`POST /games/{code}/resign`). Le résultat (`1-0`, `0-1`, `1/2-1/2`) et la raison sont portés par la partie et par l'événement `game.ended`.
 - L'historique est servi par `GET /games/{code}/moves`. Le front l'affiche en liste de coups et permet de rejouer la partie pas à pas (boutons, flèches du clavier, clic sur un coup) ; le bandeau « Revenir à la partie en cours » ramène au direct, et un coup reçu pendant la consultation ne déplace pas la vue.
+- Tournoi suisse léger (4 à 8 joueurs, 3 à 5 rondes), voir la section suivante.
 - Le front charge l'état par REST, puis suit le direct en SSE. À chaque reconnexion du flux, il recharge l'état pour rattraper ce qu'il a manqué.
+
+## Tournoi entre amis
+
+Depuis l'accueil, « Créer un tournoi » donne un code à partager. L'organisateur est inscrit d'office ; les amis ouvrent le tournoi avec le code et cliquent sur « Rejoindre le tournoi ».
+
+| Méthode | Chemin | Effet |
+|---|---|---|
+| POST | `/tournaments` | Crée un tournoi (`name`, `rounds` de 3 à 5, 3 par défaut) |
+| GET | `/tournaments/{code}` | Classement, rondes et parties |
+| POST | `/tournaments/{code}/join` | S'inscrire (tant que le tournoi n'a pas commencé, 8 joueurs maximum) |
+| POST | `/tournaments/{code}/start` | Lancer la ronde 1 (organisateur uniquement, 4 joueurs minimum) |
+| GET | `/tournaments/{code}/watch` | SSE sur `live-service` : signal `tournament.updated` à chaque changement |
+
+- Format suisse : un point par victoire, un demi-point par nulle. Ronde 1 au hasard ; ensuite les joueurs de score voisin se rencontrent, sans revanche tant que c'est possible, avec équilibrage des couleurs. À nombre impair, un joueur est exempt (bye, 1 point), jamais deux fois. Le nombre de rondes est ramené à « joueurs - 1 » si besoin.
+- Les parties sont créées par le serveur avec leurs deux joueurs : chacun a un bouton « Jouer ma partie » sur la page du tournoi. Quand la dernière partie d'une ronde se termine, la ronde suivante démarre seule ; après la dernière, le classement final s'affiche (départage : Buchholz, somme des points des adversaires).
+- Un joueur qui ne joue pas bloque la ronde : il peut abandonner, ou son adversaire attend. Il n'y a pas de pendule.
+- Les changements passent par la même chaîne que les coups : outbox, Kafka (clé `t-<id>`), `live-service`, SSE. Le front ne lit pas le contenu du message : il recharge le tournoi par REST.
 
 ## Ce qui tourne
 

@@ -2,7 +2,7 @@
 
 Document de référence du projet perso. Il fixe le périmètre, la stack, l’architecture, les règles métier, les tests, le déploiement et le monitoring.
 
-Statut : V1 livrée (partie en direct, spectateur, historique, rejeu, abandon, CI). Restent le tournoi V2, la mise en ligne et le monitoring.
+Statut : V1 et V2 livrées (partie en direct, spectateur, historique, rejeu, abandon, CI, tournoi suisse). Restent la mise en ligne et le monitoring.
 
 ---
 
@@ -79,12 +79,14 @@ Comptes de démo prévus pour l’entretien : deux joueurs + un spectateur, iden
 - Lancement local en une commande Docker Compose.
 - README avec schéma et parcours de démo.
 
-### V2 — tournoi entre amis (seulement quand la V1 est stable)
+### V2 — tournoi entre amis (livrée)
 
-- Créer un tournoi, inviter par code.
-- Rattacher les parties au tournoi.
-- Appariement simple (Swiss léger ou arène à 4 joueurs, pas un round robin aller-retour).
-- Page de classement : points, parties jouées.
+- Créer un tournoi, inviter par code ; l'organisateur est inscrit d'office. 4 à 8 joueurs.
+- Format retenu : suisse léger, 3 à 5 rondes (ramenées à « joueurs - 1 » au lancement si besoin). Pas d'arène (elle demande une pendule) ni de toutes-rondes.
+- Les parties sont créées par le serveur à chaque ronde, avec leurs deux joueurs et leurs couleurs. La ronde suivante démarre seule quand la dernière partie de la ronde se termine.
+- Points : victoire 1, nulle 0,5, défaite 0, bye 1 (au plus un par joueur). Départage : Buchholz.
+- Appariement : ronde 1 au hasard ; ensuite tri par score, sans revanche tant qu'un autre appariement existe (retour arrière), couleurs équilibrées.
+- Page de tournoi : inscrits, classement, rondes avec un lien vers chaque partie, vainqueur, mise à jour en direct.
 
 ### Explicitement reporté
 
@@ -220,18 +222,19 @@ Règles d’architecture :
 ### outbox_events
 
 - id
-- game_id
+- game_id (nullable)
+- tournament_id (nullable ; exactement un des deux est renseigné)
 - event_type
 - payload (JSON)
 - move_number (nullable)
 - created_at
 - published_at (null tant que Kafka n’a pas acquitté)
 
-### V2 uniquement
+### Tournoi (V2)
 
-- tournaments (id, name, code, status, created_by)
-- tournament_participants (tournament_id, user_id, score)
-- games.tournament_id nullable
+- tournaments : id, code (unique), name, status (`REGISTRATION`, `IN_PROGRESS`, `FINISHED`), created_by, rounds_total, current_round, created_at
+- tournament_participants : id, tournament_id, user_id, half_points (score en demi-points : victoire 2, nulle 1, pour éviter les décimaux), bye_round (nullable), joined_at ; unique `(tournament_id, user_id)`
+- games.tournament_id et games.round, nullables
 
 Migrations uniquement via Flyway. Pas de `ddl-auto=update` en dehors d’un essai local jetable.
 
@@ -250,6 +253,11 @@ Authentification : `Authorization: Bearer <jwt>`.
 | POST | `/games/{code}/resign` | Abandon du joueur authentifié |
 | GET | `/games/{code}/moves` | Historique ordonné, pour le rejeu |
 | GET | `/games/{code}/watch` | Réservé au flux : le spectateur s’abonne sans être assis à l’échiquier |
+| POST | `/tournaments` | Crée un tournoi (`name`, `rounds` de 3 à 5, 3 par défaut). L'auteur est organisateur et premier inscrit |
+| GET | `/tournaments/{code}` | Tournoi, classement (rang, points, Buchholz) et rondes avec leurs parties |
+| POST | `/tournaments/{code}/join` | Inscription, avant le lancement, 8 joueurs maximum |
+| POST | `/tournaments/{code}/start` | Lance la ronde 1 (organisateur, 4 joueurs minimum) |
+| GET | `/tournaments/{code}/watch` | Flux SSE du tournoi, sur `live-service` |
 
 Erreurs métier, en JSON, avec un code stable :
 
@@ -259,10 +267,18 @@ Erreurs métier, en JSON, avec un code stable :
 - `GAME_NOT_STARTED`
 - `GAME_ALREADY_FINISHED`
 - `GAME_FULL`
+- `TOURNAMENT_NOT_FOUND`
+- `TOURNAMENT_NOT_OPEN` (inscription après le lancement)
+- `TOURNAMENT_FULL`
+- `ALREADY_REGISTERED`
+- `NOT_ORGANIZER`
+- `NOT_ENOUGH_PLAYERS`
+- `TOURNAMENT_ALREADY_STARTED`
 
 Le live :
 
 - SSE sur `live-service` : `GET /games/{code}/watch`, un flux par code de partie, en lecture seule, sans JWT (le code sert de secret de partage). Un battement de cœur maintient la connexion.
+- `GET /tournaments/{code}/watch` : même principe pour un tournoi. Le canal est distinct de celui des parties, pour qu'un code de tournoi et un code de partie identiques ne se mélangent pas.
 - Message poussé après `move.played` et `game.ended`, relayé tel quel depuis Kafka. À chaque (ré)ouverture du flux, le front recharge l’état par REST pour rattraper ce qu’il a manqué.
 
 CORS : origines du front local, puis l’URL de prod, rien d’autre.
@@ -270,7 +286,7 @@ CORS : origines du front local, puis l’URL de prod, rien d’autre.
 ## 10. Événements Kafka
 
 Topic : `chess.game.events`  
-Clé : `gameId`  
+Clé : `gameId` (ou `t-<tournamentId>` pour un événement de tournoi)  
 Un type par message.
 
 ### move.played
@@ -295,6 +311,15 @@ Un type par message.
 - gameId
 - color
 - userId
+
+### tournament.updated
+
+- tournamentId
+- code
+- status
+- currentRound
+
+C'est un simple signal, émis à chaque inscription, lancement, fin de partie de tournoi, changement de ronde et clôture. Il porte la clé Kafka `t-<tournamentId>` (et non un `gameId`). Le front ne s'appuie pas sur son contenu : il recharge le tournoi par REST, ce qui rend l'ordre des messages sans importance.
 
 Le consumer doit tolérer un message déjà vu (rejeu de l’offset, republication outbox) : appliquer un coup déjà connu ne doit pas dupliquer l’état.
 
@@ -322,6 +347,7 @@ Promotion : l’UCI contient la pièce (`e7e8q`). Si le pion arrive sur la derni
 - Partie : composant chessground, liste des coups, statut (à vous / à l’adversaire / terminée)
 - Spectateur : même échiquier, aucun envoi de coup, badge « spectateur »
 - Rejeu : curseur ou boutons précédent / suivant, à partir de `GET /moves`
+- Tournoi (V2) : depuis l'accueil, création avec un nom et un nombre de rondes, ou ouverture par code. La page du tournoi gère l'inscription, le lancement (organisateur), le classement, les rondes avec « Jouer ma partie » ou « Suivre », et le vainqueur. La page de partie propose « Retour au tournoi ».
 
 Le front applique le FEN renvoyé par le serveur. Il peut prévisualiser les cases d’arrivée pour le confort, mais un refus serveur annule le coup visuel.
 
@@ -349,7 +375,7 @@ tournoi-echecs/
   .github/workflows/ci.yml
 ```
 
-L'infrastructure locale est en place : PostgreSQL, Kafka et le topic `chess.game.events`. Avancement : `game-service` (comptes, JWT, parties, coups, outbox et publisher Kafka), `live-service` (consumer Kafka et flux SSE) et le front Angular (jeu en direct, historique SAN, rejeu pas à pas, abandon) existent, et la CI GitHub Actions teste les trois modules. Le rejeu s'appuie sur `GET /games/{code}/moves`, pas sur le flux. Restent le tournoi V2, la mise en ligne et le monitoring.
+L'infrastructure locale est en place : PostgreSQL, Kafka et le topic `chess.game.events`. Avancement : `game-service` (comptes, JWT, parties, coups, outbox et publisher Kafka), `live-service` (consumer Kafka et flux SSE) et le front Angular (jeu en direct, historique SAN, rejeu pas à pas, abandon) existent, et la CI GitHub Actions teste les trois modules. Le rejeu s'appuie sur `GET /games/{code}/moves`, pas sur le flux. Le tournoi suisse (V2) est livré : inscription par code, rondes et parties créées automatiquement, classement en direct. Restent la mise en ligne et le monitoring.
 
 Ordre de construction, à ne pas inverser :
 
@@ -456,7 +482,7 @@ La V1 est terminée quand :
 - le README explique l’architecture en un schéma ;
 - une URL publique, même sans domaine custom, permet de refaire la démo sans lancer le PC du développeur.
 
-La V2 est terminée quand quatre comptes jouent un mini-tournoi et qu’un classement s’affiche.
+La V2 est terminée quand quatre comptes jouent un mini-tournoi et qu’un classement s’affiche. C'est le cas : le test d'intégration `TournamentApiTests` joue un tournoi de trois rondes à quatre comptes jusqu'au classement final, et le même parcours a été vérifié contre PostgreSQL, Kafka et le flux SSE réels.
 
 ## 21. Ce qu’on dira sur le CV (quand c’est vrai)
 

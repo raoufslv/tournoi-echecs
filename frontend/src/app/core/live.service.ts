@@ -17,6 +17,9 @@ export const EVENT_SOURCE_FACTORY = new InjectionToken<(url: string) => EventSou
   { providedIn: 'root', factory: () => (url: string) => new EventSource(url) },
 );
 
+/** Le tournoi n'envoie qu'un signal « quelque chose a changé » : le front recharge alors par REST. */
+export type TournamentLiveMessage = { kind: 'open' } | { kind: 'error' } | { kind: 'updated' };
+
 @Injectable({ providedIn: 'root' })
 export class LiveService {
   private readonly createSource = inject(EVENT_SOURCE_FACTORY);
@@ -43,6 +46,19 @@ export class LiveService {
           }
         });
       }
+
+      return () => source.close();
+    });
+  }
+
+  /** Flux d'un tournoi : mêmes règles que pour une partie (réouverture = rechargement REST). */
+  watchTournament(code: string): Observable<TournamentLiveMessage> {
+    return new Observable<TournamentLiveMessage>((subscriber) => {
+      const source = this.createSource(`${LIVE_URL}/tournaments/${encodeURIComponent(code)}/watch`);
+
+      source.onopen = () => subscriber.next({ kind: 'open' });
+      source.onerror = () => subscriber.next({ kind: 'error' });
+      source.addEventListener('tournament.updated', () => subscriber.next({ kind: 'updated' }));
 
       return () => source.close();
     });

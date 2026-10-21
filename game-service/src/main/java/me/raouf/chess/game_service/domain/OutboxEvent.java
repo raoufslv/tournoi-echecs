@@ -17,8 +17,11 @@ public class OutboxEvent {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(name = "game_id", nullable = false)
+	@Column(name = "game_id")
 	private Long gameId;
+
+	@Column(name = "tournament_id")
+	private Long tournamentId;
 
 	@Column(name = "event_type", nullable = false, length = 30)
 	private String eventType;
@@ -43,6 +46,22 @@ public class OutboxEvent {
 		this.eventType = eventType;
 		this.payload = payload;
 		this.moveNumber = moveNumber;
+	}
+
+	/** Evenement de tournoi : pas de partie associee. */
+	public static OutboxEvent forTournament(Long tournamentId, String eventType, String payload) {
+		OutboxEvent event = new OutboxEvent(null, eventType, payload, null);
+		event.tournamentId = tournamentId;
+		return event;
+	}
+
+	/** Cle Kafka : l'ordre est garanti par partie, ou par tournoi pour les evenements de tournoi. */
+	public String kafkaKey() {
+		return gameId != null ? String.valueOf(gameId) : "t-" + tournamentId;
+	}
+
+	public Long getTournamentId() {
+		return tournamentId;
 	}
 
 	public void markPublished() {

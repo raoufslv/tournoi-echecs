@@ -1,5 +1,6 @@
 package me.raouf.chess.game_service.domain;
 
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
@@ -13,5 +14,7 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	Optional<Game> findWithLockByCode(String code);
+
+	List<Game> findByTournamentOrderByRoundAscIdAsc(Tournament tournament);
 
 }

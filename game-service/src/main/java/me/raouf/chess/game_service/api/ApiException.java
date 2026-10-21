@@ -49,4 +49,32 @@ public class ApiException extends RuntimeException {
 		return new ApiException(HttpStatus.FORBIDDEN, "NOT_YOUR_TURN");
 	}
 
+	public static ApiException tournamentNotFound() {
+		return new ApiException(HttpStatus.NOT_FOUND, "TOURNAMENT_NOT_FOUND");
+	}
+
+	public static ApiException tournamentNotOpen() {
+		return new ApiException(HttpStatus.CONFLICT, "TOURNAMENT_NOT_OPEN");
+	}
+
+	public static ApiException tournamentFull() {
+		return new ApiException(HttpStatus.CONFLICT, "TOURNAMENT_FULL");
+	}
+
+	public static ApiException alreadyRegistered() {
+		return new ApiException(HttpStatus.CONFLICT, "ALREADY_REGISTERED");
+	}
+
+	public static ApiException notOrganizer() {
+		return new ApiException(HttpStatus.FORBIDDEN, "NOT_ORGANIZER");
+	}
+
+	public static ApiException notEnoughPlayers() {
+		return new ApiException(HttpStatus.CONFLICT, "NOT_ENOUGH_PLAYERS");
+	}
+
+	public static ApiException tournamentAlreadyStarted() {
+		return new ApiException(HttpStatus.CONFLICT, "TOURNAMENT_ALREADY_STARTED");
+	}
+
 }

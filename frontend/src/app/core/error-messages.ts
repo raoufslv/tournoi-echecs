@@ -8,6 +8,13 @@ const MESSAGES: Record<string, string> = {
   GAME_ALREADY_FINISHED: 'La partie est déjà terminée.',
   SPECTATOR_CANNOT_MOVE: 'Seuls les joueurs de la partie peuvent abandonner.',
   GAME_NOT_FOUND: 'Partie introuvable.',
+  TOURNAMENT_NOT_FOUND: 'Tournoi introuvable.',
+  TOURNAMENT_NOT_OPEN: "Les inscriptions sont closes : le tournoi a déjà commencé.",
+  TOURNAMENT_FULL: 'Ce tournoi est complet (8 joueurs maximum).',
+  ALREADY_REGISTERED: 'Vous êtes déjà inscrit à ce tournoi.',
+  NOT_ORGANIZER: "Seul l'organisateur peut lancer le tournoi.",
+  NOT_ENOUGH_PLAYERS: 'Il faut au moins 4 joueurs pour lancer le tournoi.',
+  TOURNAMENT_ALREADY_STARTED: 'Le tournoi a déjà été lancé.',
   INVALID_REQUEST: 'Les informations saisies sont invalides.',
 };
 

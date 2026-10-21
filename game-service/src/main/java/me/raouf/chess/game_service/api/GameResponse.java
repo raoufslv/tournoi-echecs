@@ -14,7 +14,9 @@ public record GameResponse(
 		String blackName,
 		String turn,
 		String result,
-		String endReason
+		String endReason,
+		String tournamentCode,
+		Integer round
 ) {
 
 	public static GameResponse from(Game game) {
@@ -29,7 +31,9 @@ public record GameResponse(
 				nameOf(game.getBlackUser()),
 				game.getTurn(),
 				game.getResult(),
-				game.getEndReason()
+				game.getEndReason(),
+				game.getTournament() == null ? null : game.getTournament().getCode(),
+				game.getRound()
 		);
 	}
 

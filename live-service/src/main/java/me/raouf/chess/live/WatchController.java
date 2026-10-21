@@ -26,4 +26,9 @@ public class WatchController {
 		return registry.subscribe(code.trim().toUpperCase(Locale.ROOT));
 	}
 
+	@GetMapping(path = "/tournaments/{code}/watch", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public SseEmitter watchTournament(@PathVariable String code) {
+		return registry.subscribe(WatchRegistry.tournamentChannel(code.trim().toUpperCase(Locale.ROOT)));
+	}
+
 }

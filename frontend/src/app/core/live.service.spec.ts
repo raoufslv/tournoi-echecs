@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { LiveMessage, LiveService, EVENT_SOURCE_FACTORY } from './live.service';
+import { LiveMessage, LiveService, EVENT_SOURCE_FACTORY, TournamentLiveMessage } from './live.service';
 
 /** Faux EventSource pilotable depuis le test. */
 class FakeEventSource {
@@ -76,5 +76,28 @@ describe('LiveService', () => {
     const subscription = service.watch('ABC123').subscribe();
     subscription.unsubscribe();
     expect(source.closed).toBeTrue();
+  });
+
+  describe('watchTournament', () => {
+    it('connects to the watch URL of the tournament', () => {
+      service.watchTournament('TOURN1').subscribe();
+      expect(source.url).toBe('http://localhost:8081/tournaments/TOURN1/watch');
+    });
+
+    it('turns tournament.updated into an update signal, without reading the payload', () => {
+      const received: TournamentLiveMessage[] = [];
+      service.watchTournament('TOURN1').subscribe((m) => received.push(m));
+
+      source.onopen?.();
+      source.emit('tournament.updated', 'pas besoin de json valide');
+      source.onerror?.();
+
+      expect(received.map((m) => m.kind)).toEqual(['open', 'updated', 'error']);
+    });
+
+    it('closes the connection on unsubscribe', () => {
+      service.watchTournament('TOURN1').subscribe().unsubscribe();
+      expect(source.closed).toBeTrue();
+    });
   });
 });

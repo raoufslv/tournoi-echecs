@@ -16,9 +16,11 @@ public class CorsConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addCorsMappings(CorsRegistry registry) {
-		registry.addMapping("/games/**")
-				.allowedOrigins(allowedOrigin)
-				.allowedMethods("GET", "OPTIONS");
+		for (String path : new String[] { "/games/**", "/tournaments/**" }) {
+			registry.addMapping(path)
+					.allowedOrigins(allowedOrigin)
+					.allowedMethods("GET", "OPTIONS");
+		}
 	}
 
 }

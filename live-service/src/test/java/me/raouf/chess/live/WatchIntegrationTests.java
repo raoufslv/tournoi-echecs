@@ -49,8 +49,12 @@ class WatchIntegrationTests {
 
 	/** Ouvre un flux SSE et pousse chaque ligne recue dans une file, depuis un thread de fond. */
 	private BlockingQueue<String> open(String code) throws Exception {
+		return openPath("/games/" + code + "/watch");
+	}
+
+	private BlockingQueue<String> openPath(String path) throws Exception {
 		BlockingQueue<String> lines = new LinkedBlockingQueue<>();
-		HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/games/" + code + "/watch"))
+		HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
 				.header("Accept", "text/event-stream")
 				.build();
 		Thread reader = new Thread(() -> {
@@ -139,6 +143,35 @@ class WatchIntegrationTests {
 		assertThat(first.get(1)).contains("\"san\":\"e4\"");
 		assertThat(second.get(0)).isEqualTo("game.ended");
 		assertThat(second.get(1)).contains("\"result\":\"0-1\"").contains("\"endReason\":\"RESIGNATION\"");
+	}
+
+	@Test
+	void tournamentEventsReachOnlyTheTournamentWatchers() throws Exception {
+		BlockingQueue<String> tournamentWatcher = openPath("/tournaments/TOURN1/watch");
+		// Une partie dont le code est identique a celui du tournoi ne doit rien recevoir.
+		BlockingQueue<String> gameWatcher = open("TOURN1");
+		String updated = "{\"type\":\"tournament.updated\",\"tournamentId\":9,\"code\":\"TOURN1\","
+				+ "\"status\":\"IN_PROGRESS\",\"currentRound\":1}";
+
+		producer.send(TOPIC, "t-9", updated).get(10, TimeUnit.SECONDS);
+
+		List<String> event = nextEvent(tournamentWatcher);
+		assertThat(event.get(0)).isEqualTo("tournament.updated");
+		assertThat(event.get(1)).contains("\"currentRound\":1");
+		Thread.sleep(1500);
+		assertThat(gameWatcher.stream().filter(l -> l.startsWith("data:"))).isEmpty();
+	}
+
+	@Test
+	void gameEventsDoNotReachTournamentWatchers() throws Exception {
+		BlockingQueue<String> tournamentWatcher = openPath("/tournaments/SAMECD/watch");
+		BlockingQueue<String> gameWatcher = open("SAMECD");
+
+		producer.send(TOPIC, "5", move("SAMECD", 1, "e2e4")).get(10, TimeUnit.SECONDS);
+
+		assertThat(nextEvent(gameWatcher).get(0)).isEqualTo("move.played");
+		Thread.sleep(1500);
+		assertThat(tournamentWatcher.stream().filter(l -> l.startsWith("data:"))).isEmpty();
 	}
 
 	@Test

@@ -47,7 +47,7 @@ public class OutboxPublisher {
 		int published = 0;
 		for (OutboxEvent event : batch) {
 			try {
-				kafka.send(topic, String.valueOf(event.getGameId()), event.getPayload())
+				kafka.send(topic, event.kafkaKey(), event.getPayload())
 						.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			}
 			catch (InterruptedException e) {

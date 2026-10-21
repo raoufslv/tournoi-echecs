@@ -1,6 +1,5 @@
 package me.raouf.chess.game_service.service;
 
-import java.security.SecureRandom;
 import java.util.List;
 
 import com.github.bhlangonijr.chesslib.Board;
@@ -26,31 +25,28 @@ import me.raouf.chess.game_service.events.PlayerJoinedEvent;
 @Service
 public class GamePlayService {
 
-	private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-	private static final int CODE_LENGTH = 6;
-
 	private final GameRepository games;
 	private final MoveRepository moves;
 	private final UserRepository users;
 	private final OutboxService outbox;
-	private final SecureRandom random = new SecureRandom();
+	private final CodeGenerator codes;
+	private final TournamentService tournaments;
 
 	public GamePlayService(GameRepository games, MoveRepository moves, UserRepository users,
-			OutboxService outbox) {
+			OutboxService outbox, CodeGenerator codes, TournamentService tournaments) {
 		this.games = games;
 		this.moves = moves;
 		this.users = users;
 		this.outbox = outbox;
+		this.codes = codes;
+		this.tournaments = tournaments;
 	}
 
 	@Transactional
 	public Game createGame(long userId) {
 		User creator = findUser(userId);
 		Board board = new Board();
-		String code = nextCode();
-		while (games.findByCode(code).isPresent()) {
-			code = nextCode();
-		}
+		String code = codes.next(candidate -> games.findByCode(candidate).isPresent());
 		Game game = new Game(code, GameStatus.WAITING, board.getFen(), 1);
 		game.setWhiteUser(creator);
 		return games.save(game);
@@ -153,6 +149,8 @@ public class GamePlayService {
 		outbox.record(game.getId(), GameEndedEvent.TYPE, lastMoveNumber,
 				GameEndedEvent.of(game.getId(), game.getCode(), lastMoveNumber, result, reason,
 						game.getCurrentFen()));
+		// Partie de tournoi : scores, ronde suivante ou fin du tournoi, dans la meme transaction.
+		tournaments.onGameFinished(game);
 	}
 
 	private static String winnerResult(String winnerColor) {
@@ -171,14 +169,6 @@ public class GamePlayService {
 			}
 		}
 		return null;
-	}
-
-	private String nextCode() {
-		StringBuilder code = new StringBuilder(CODE_LENGTH);
-		for (int i = 0; i < CODE_LENGTH; i++) {
-			code.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
-		}
-		return code.toString();
 	}
 
 }
