@@ -81,7 +81,7 @@ class OutboxTests {
 	}
 
 	private Game startedGame(long white, long black) {
-		Game game = service.createGame(white);
+		Game game = service.createGame(white, null);
 		service.joinGame(game.getCode(), black);
 		return game;
 	}
