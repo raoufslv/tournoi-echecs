@@ -95,8 +95,13 @@ import { TournamentService } from '../../core/tournament.service';
     }
   `,
   styles: `
+    :host {
+      display: block;
+      max-width: 420px;
+      margin: 0 auto;
+    }
     .second {
-      margin-top: 1rem;
+      margin-top: 1.25rem;
     }
     .hint {
       color: var(--muted);

@@ -59,7 +59,7 @@ interface Row {
       font-weight: 500;
     }
     .mv:hover:not(:disabled) {
-      background: #eaf0f8;
+      background: var(--accent-soft);
     }
     .mv.current {
       background: var(--accent);

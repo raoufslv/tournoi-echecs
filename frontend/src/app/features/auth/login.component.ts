@@ -28,7 +28,7 @@ import { errorMessage } from '../../core/error-messages';
   `,
   styles: `
     .auth {
-      max-width: 400px;
+      max-width: 420px;
       margin: 0 auto;
     }
     .alt {

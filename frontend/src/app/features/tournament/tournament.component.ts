@@ -136,6 +136,7 @@ const MIN_PLAYERS = 4;
     }
     .head h1 {
       margin-bottom: 0.25rem;
+      font-family: Georgia, 'Times New Roman', ui-serif, serif;
     }
     .status,
     .hint {
@@ -154,7 +155,7 @@ const MIN_PLAYERS = 4;
       margin: 0 0 1rem;
       padding: 0.6rem 0.9rem;
       border-radius: 6px;
-      background: #eaf0f8;
+      background: var(--accent-soft);
       color: var(--accent-dark);
       font-weight: 600;
     }
@@ -169,8 +170,8 @@ const MIN_PLAYERS = 4;
     .standings th,
     .standings td {
       text-align: left;
-      padding: 0.35rem 0.5rem;
-      border-bottom: 1px solid #e5e7eb;
+      padding: 0.55rem 0.5rem;
+      border-bottom: 1px solid var(--border);
     }
     .standings .me {
       font-weight: 600;
@@ -187,9 +188,10 @@ const MIN_PLAYERS = 4;
     .pairings li {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 0.75rem;
-      padding: 0.4rem 0;
-      border-bottom: 1px solid #e5e7eb;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--border);
     }
     .pairings .players {
       flex: 1;

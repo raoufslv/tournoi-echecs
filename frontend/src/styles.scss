@@ -1,12 +1,13 @@
 :root {
-  --bg: #f6f7f9;
+  --bg: #f3efe6;
   --card: #ffffff;
-  --text: #1c2430;
-  --muted: #6b7686;
-  --border: #e1e5ea;
-  --accent: #2f5d9e;
-  --accent-dark: #254a7e;
-  --danger: #b3261e;
+  --text: #1c1915;
+  --muted: #6d655c;
+  --border: #e4ddd2;
+  --accent: #1f6b4a;
+  --accent-dark: #174e36;
+  --accent-soft: #e7f2ec;
+  --danger: #9c3414;
   --radius: 10px;
 }
 
@@ -41,16 +42,20 @@ label {
   margin-bottom: 0.25rem;
 }
 
-input {
+input,
+select {
   width: 100%;
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   font: inherit;
   margin-bottom: 0.9rem;
+  background: #fff;
+  color: var(--text);
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
@@ -80,7 +85,7 @@ button.secondary {
 }
 
 button.secondary:hover:not(:disabled) {
-  background: #eaf0f8;
+  background: var(--accent-soft);
 }
 
 /* Lien qui a l'apparence d'un bouton. */
@@ -104,7 +109,7 @@ a.button.secondary {
 }
 
 a.button.secondary:hover {
-  background: #eaf0f8;
+  background: var(--accent-soft);
 }
 
 .error {

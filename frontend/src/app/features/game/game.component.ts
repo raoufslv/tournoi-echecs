@@ -37,16 +37,8 @@ const PROMOTIONS = [
     @if (game(); as g) {
       <section class="card">
         <div class="head">
-          <div>
-            <h1>Partie {{ g.code }}</h1>
-            <p class="status">{{ statusText() }}</p>
-          </div>
-          <div class="actions">
-            <button type="button" class="secondary" (click)="copyCode(g.code)">
-              {{ copied() ? 'Copié !' : 'Copier le code' }}
-            </button>
-            <button type="button" class="secondary" (click)="download()">Télécharger le PGN</button>
-          </div>
+          <h1>Partie {{ g.code }}</h1>
+          <p class="status">{{ statusText() }}</p>
         </div>
 
         @if (g.tournamentCode) {
@@ -58,19 +50,11 @@ const PROMOTIONS = [
           </p>
         }
 
-        <div class="players">
-          <span [class.active]="g.status === 'IN_PROGRESS' && g.turn === 'WHITE'">
-            @if (clock(g, 'WHITE'); as time) {
-              <strong class="clock">{{ time }}</strong>
-            }
-            Blancs : {{ g.whiteName ?? 'en attente…' }}
-          </span>
-          <span [class.active]="g.status === 'IN_PROGRESS' && g.turn === 'BLACK'">
-            @if (clock(g, 'BLACK'); as time) {
-              <strong class="clock">{{ time }}</strong>
-            }
-            Noirs : {{ g.blackName ?? 'en attente…' }}
-          </span>
+        <div class="seat" [class.active]="g.status === 'IN_PROGRESS' && g.turn === 'BLACK'">
+          @if (clock(g, 'BLACK'); as time) {
+            <strong class="clock" [class.on]="g.status === 'IN_PROGRESS' && g.turn === 'BLACK'">{{ time }}</strong>
+          }
+          <span>Noirs · {{ g.blackName ?? 'en attente…' }}</span>
         </div>
 
         @if (banner(); as text) {
@@ -83,6 +67,13 @@ const PROMOTIONS = [
           [movableColor]="reviewing() ? null : movableColor()"
           (moved)="onMove($event)"
         />
+
+        <div class="seat below" [class.active]="g.status === 'IN_PROGRESS' && g.turn === 'WHITE'">
+          @if (clock(g, 'WHITE'); as time) {
+            <strong class="clock" [class.on]="g.status === 'IN_PROGRESS' && g.turn === 'WHITE'">{{ time }}</strong>
+          }
+          <span>Blancs · {{ g.whiteName ?? 'en attente…' }}</span>
+        </div>
 
         <div class="replay" role="group" aria-label="Navigation dans la partie">
           <button type="button" class="secondary" (click)="goTo(0)" [disabled]="currentIndex() === 0"
@@ -123,22 +114,28 @@ const PROMOTIONS = [
         <h2 class="moves-title">Coups</h2>
         <app-move-list [moves]="moves()" [current]="currentIndex()" (selected)="goTo($event)" />
 
-        @if (offeredByMe()) {
-          <p class="hint">Nulle proposée à l'adversaire.</p>
-        }
-        @if (canOfferDraw()) {
-          <button type="button" class="secondary" (click)="offerDraw()">Proposer la nulle</button>
-        }
-        @if (drawForMe()) {
-          <button type="button" (click)="acceptDraw()">Accepter la nulle</button>
-          <button type="button" class="secondary" (click)="declineDraw()">Refuser</button>
-        }
-        @if (canRematch()) {
-          <button type="button" (click)="askRematch()">Revanche</button>
-        }
-        @if (canResign()) {
-          <button type="button" class="secondary resign" (click)="resign()">Abandonner</button>
-        }
+        <div class="actions">
+          <button type="button" class="secondary" (click)="copyCode(g.code)">
+            {{ copied() ? 'Copié !' : 'Copier le code' }}
+          </button>
+          <button type="button" class="secondary" (click)="download()">Télécharger le PGN</button>
+          @if (offeredByMe()) {
+            <p class="hint">Nulle proposée à l'adversaire.</p>
+          }
+          @if (canOfferDraw()) {
+            <button type="button" class="secondary" (click)="offerDraw()">Proposer la nulle</button>
+          }
+          @if (drawForMe()) {
+            <button type="button" (click)="acceptDraw()">Accepter la nulle</button>
+            <button type="button" class="secondary" (click)="declineDraw()">Refuser</button>
+          }
+          @if (canRematch()) {
+            <button type="button" (click)="askRematch()">Revanche</button>
+          }
+          @if (canResign()) {
+            <button type="button" class="secondary resign" (click)="resign()">Abandonner</button>
+          }
+        </div>
       </section>
     } @else if (loadError()) {
       <p class="error" role="alert">{{ loadError() }}</p>
@@ -147,25 +144,53 @@ const PROMOTIONS = [
     }
   `,
   styles: `
-    .head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+    :host {
+      display: block;
+      max-width: 640px;
+      margin: 0 auto;
     }
     .head h1 {
       margin-bottom: 0.25rem;
+      font-family: Georgia, 'Times New Roman', ui-serif, serif;
     }
     .actions {
       display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 1.25rem;
+    }
+    .actions .hint {
+      margin: 0;
+    }
+    .seat {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--muted);
+    }
+    .seat.below {
+      margin: 0.75rem 0 0;
+    }
+    .seat.active {
+      color: var(--text);
     }
     .clock {
-      display: inline-block;
-      min-width: 3.2rem;
-      margin-right: 0.4rem;
+      min-width: 4.5rem;
+      padding: 0.35rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 1.35rem;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
+      text-align: center;
+      color: var(--text);
+    }
+    .clock.on {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
     }
     .hint {
       color: var(--muted);
@@ -173,17 +198,6 @@ const PROMOTIONS = [
     .status {
       margin: 0 0 1rem;
       color: var(--muted);
-    }
-    .players {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 1rem;
-      font-size: 0.95rem;
-      color: var(--muted);
-    }
-    .players .active {
-      color: var(--text);
-      font-weight: 600;
     }
     .tournament-link {
       margin: 0 0 0.75rem;
@@ -206,7 +220,7 @@ const PROMOTIONS = [
       margin: 0 0 1rem;
       padding: 0.6rem 0.9rem;
       border-radius: 6px;
-      background: #eaf0f8;
+      background: var(--accent-soft);
       color: var(--accent-dark);
       font-weight: 600;
     }
@@ -231,7 +245,6 @@ const PROMOTIONS = [
       font-size: 1rem;
     }
     .resign {
-      margin-top: 1.25rem;
       color: var(--danger);
       border-color: var(--danger);
     }

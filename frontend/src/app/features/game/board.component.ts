@@ -47,7 +47,7 @@ export function isPromotionMove(fen: string, orig: string, dest: string): boolea
     :host {
       display: block;
       width: 100%;
-      max-width: 560px;
+      max-width: 100%;
       aspect-ratio: 1;
       margin: 0 auto;
     }

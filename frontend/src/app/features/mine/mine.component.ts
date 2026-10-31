@@ -58,8 +58,9 @@ const TOURNAMENT_STATUS: Record<MyTournament['status'], string> = {
     .mine li {
       display: flex;
       justify-content: space-between;
-      gap: 1rem;
-      padding: 0.6rem 0;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      padding: 0.85rem 0;
       border-bottom: 1px solid var(--border);
     }
     .mine span {
