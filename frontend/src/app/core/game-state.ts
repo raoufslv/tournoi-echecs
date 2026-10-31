@@ -89,6 +89,7 @@ export function resultText(result: string | null, endReason: string | null): str
   const reasons: Record<string, string> = {
     CHECKMATE: 'par mat',
     RESIGNATION: 'par abandon',
+    FORFEIT: 'par forfait',
     STALEMATE: 'par pat',
   };
   const reason = endReason ? reasons[endReason] : undefined;

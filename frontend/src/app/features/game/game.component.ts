@@ -15,6 +15,8 @@ import { Game, MoveEntry } from '../../core/api.models';
 import { AuthService } from '../../core/auth.service';
 import { copyText } from '../../core/copy-text';
 import { errorMessage } from '../../core/error-messages';
+import { OPPONENT_MOVED_TITLE, PAGE_TITLE, shouldNotifyOpponentMove } from '../../core/notify';
+import { downloadPgn, toPgn } from '../../core/pgn';
 import { GameService } from '../../core/game.service';
 import { appendMove, applyEvent, fenAtIndex, isNewer, resultText } from '../../core/game-state';
 import { LiveService } from '../../core/live.service';
@@ -39,9 +41,12 @@ const PROMOTIONS = [
             <h1>Partie {{ g.code }}</h1>
             <p class="status">{{ statusText() }}</p>
           </div>
-          <button type="button" class="secondary" (click)="copyCode(g.code)">
-            {{ copied() ? 'Copié !' : 'Copier le code' }}
-          </button>
+          <div class="actions">
+            <button type="button" class="secondary" (click)="copyCode(g.code)">
+              {{ copied() ? 'Copié !' : 'Copier le code' }}
+            </button>
+            <button type="button" class="secondary" (click)="download()">Télécharger le PGN</button>
+          </div>
         </div>
 
         @if (g.tournamentCode) {
@@ -130,6 +135,12 @@ const PROMOTIONS = [
     }
     .head h1 {
       margin-bottom: 0.25rem;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      align-items: flex-end;
     }
     .status {
       margin: 0 0 1rem;
@@ -282,8 +293,16 @@ export class GameComponent implements OnInit {
 
   ngOnInit(): void {
     this.code = this.route.snapshot.paramMap.get('code') ?? '';
+    document.addEventListener('visibilitychange', this.onVisible);
     this.refresh();
     this.startLive();
+  }
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      document.removeEventListener('visibilitychange', this.onVisible);
+      document.title = PAGE_TITLE;
+    });
   }
 
   protected onMove(move: BoardMove): void {
@@ -351,6 +370,20 @@ export class GameComponent implements OnInit {
     });
   }
 
+  protected download(): void {
+    const current = this.game();
+    if (!current) {
+      return;
+    }
+    downloadPgn(`partie-${current.code}.pgn`, toPgn(current, this.moves()));
+  }
+
+  private readonly onVisible = (): void => {
+    if (!document.hidden) {
+      document.title = PAGE_TITLE;
+    }
+  };
+
   protected copyCode(code: string): void {
     void copyText(code).then((ok) => {
       if (!ok) {
@@ -405,6 +438,10 @@ export class GameComponent implements OnInit {
             const event = message.event;
             // L'historique d'abord : accept() vérifie ensuite qu'il est à jour avec la partie.
             if (event.type === 'move.played') {
+              if (shouldNotifyOpponentMove(document.hidden, event.playedBy, this.mySide())) {
+                document.title = OPPONENT_MOVED_TITLE;
+                beep();
+              }
               const next = appendMove(this.moves(), event);
               if (next) {
                 this.moves.set(next);
@@ -449,4 +486,17 @@ export class GameComponent implements OnInit {
       error: () => undefined,
     });
   }
+}
+
+function beep(): void {
+  const context = new AudioContext();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.frequency.value = 880;
+  gain.gain.value = 0.05;
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.12);
+  oscillator.onended = () => void context.close();
 }

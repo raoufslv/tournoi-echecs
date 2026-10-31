@@ -15,6 +15,7 @@ const MESSAGES: Record<string, string> = {
   NOT_ORGANIZER: "Seul l'organisateur peut lancer le tournoi.",
   NOT_ENOUGH_PLAYERS: 'Il faut au moins 4 joueurs pour lancer le tournoi.',
   TOURNAMENT_ALREADY_STARTED: 'Le tournoi a déjà été lancé.',
+  GAME_NOT_IN_TOURNAMENT: "Cette partie n'appartient pas à ce tournoi.",
   INVALID_REQUEST: 'Les informations saisies sont invalides.',
 };
 

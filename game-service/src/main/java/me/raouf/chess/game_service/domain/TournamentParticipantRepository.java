@@ -15,4 +15,6 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
 
 	long countByTournament(Tournament tournament);
 
+	List<TournamentParticipant> findByUserOrderByIdDesc(User user);
+
 }

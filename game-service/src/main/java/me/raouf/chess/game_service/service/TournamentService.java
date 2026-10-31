@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import me.raouf.chess.game_service.api.ApiException;
+import me.raouf.chess.game_service.api.MyTournamentResponse;
 import me.raouf.chess.game_service.domain.Game;
 import me.raouf.chess.game_service.domain.GameRepository;
 import me.raouf.chess.game_service.domain.GameStatus;
@@ -117,6 +118,25 @@ public class TournamentService {
 		startRound(tournament, 1, registered);
 		recordUpdate(tournament);
 		return tournament;
+	}
+
+	@Transactional(readOnly = true)
+	public List<MyTournamentResponse> listMine(long userId) {
+		User user = findUser(userId);
+		return participants.findByUserOrderByIdDesc(user).stream()
+				.map(participant -> MyTournamentResponse.from(participant.getTournament(), userId))
+				.toList();
+	}
+
+	/** L'organisateur peut déclarer un forfait seulement sur une partie de ce tournoi. */
+	public void assertCanForfeit(String tournamentCode, Game game, long userId) {
+		Tournament tournament = tournaments.findByCode(tournamentCode).orElseThrow(ApiException::tournamentNotFound);
+		if (!tournament.getCreatedBy().getId().equals(userId)) {
+			throw ApiException.notOrganizer();
+		}
+		if (game.getTournament() == null || !game.getTournament().getId().equals(tournament.getId())) {
+			throw ApiException.gameNotInTournament();
+		}
 	}
 
 	@Transactional(readOnly = true)

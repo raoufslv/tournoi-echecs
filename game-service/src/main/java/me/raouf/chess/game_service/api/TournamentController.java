@@ -12,15 +12,23 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import me.raouf.chess.game_service.service.GamePlayService;
 import me.raouf.chess.game_service.service.TournamentService;
 
 @RestController
 public class TournamentController {
 
 	private final TournamentService tournaments;
+	private final GamePlayService games;
 
-	public TournamentController(TournamentService tournaments) {
+	public TournamentController(TournamentService tournaments, GamePlayService games) {
 		this.tournaments = tournaments;
+		this.games = games;
+	}
+
+	@GetMapping("/tournaments/mine")
+	public java.util.List<MyTournamentResponse> mine(@AuthenticationPrincipal Jwt jwt) {
+		return tournaments.listMine(userId(jwt));
 	}
 
 	@PostMapping("/tournaments")
@@ -46,6 +54,15 @@ public class TournamentController {
 	public TournamentResponse start(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
 		tournaments.start(code, userId(jwt));
 		return TournamentResponse.from(tournaments.get(code));
+	}
+
+	@PostMapping("/tournaments/{code}/games/{gameCode}/forfeit")
+	public GameResponse forfeit(
+			@PathVariable String code,
+			@PathVariable String gameCode,
+			@Valid @RequestBody ForfeitRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		return GameResponse.from(games.forfeit(code, gameCode, request.color(), userId(jwt)));
 	}
 
 	private long userId(Jwt jwt) {

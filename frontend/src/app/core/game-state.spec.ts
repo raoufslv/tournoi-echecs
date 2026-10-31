@@ -141,6 +141,7 @@ describe('resultText', () => {
   it('describes wins by reason', () => {
     expect(resultText('1-0', 'CHECKMATE')).toBe('Les Blancs gagnent par mat');
     expect(resultText('0-1', 'RESIGNATION')).toBe('Les Noirs gagnent par abandon');
+    expect(resultText('1-0', 'FORFEIT')).toBe('Les Blancs gagnent par forfait');
   });
 
   it('describes a draw', () => {

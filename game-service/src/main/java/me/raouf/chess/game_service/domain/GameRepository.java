@@ -17,4 +17,6 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
 	List<Game> findByTournamentOrderByRoundAscIdAsc(Tournament tournament);
 
+	List<Game> findByWhiteUser_IdOrBlackUser_IdOrderByIdDesc(Long whiteUserId, Long blackUserId);
+
 }

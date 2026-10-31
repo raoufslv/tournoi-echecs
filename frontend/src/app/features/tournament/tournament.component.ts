@@ -93,7 +93,16 @@ const MIN_PLAYERS = 4;
           <ul class="pairings">
             @for (g of round.games; track g.gameCode) {
               <li>
-                <span class="players">{{ g.whiteName }} <small>(B)</small> – {{ g.blackName }} <small>(N)</small></span>
+                <span class="players">
+                  {{ g.whiteName }} <small>(B)</small>
+                  @if (canForfeit(g)) {
+                    <button type="button" class="secondary forfeit" (click)="forfeit(g, 'white')">Forfait</button>
+                  }
+                  – {{ g.blackName }} <small>(N)</small>
+                  @if (canForfeit(g)) {
+                    <button type="button" class="secondary forfeit" (click)="forfeit(g, 'black')">Forfait</button>
+                  }
+                </span>
                 <span class="result">{{ result(g) }}</span>
                 @if (isMine(g) && g.status === 'IN_PROGRESS') {
                   <a class="button" [routerLink]="['/game', g.gameCode]">Jouer ma partie</a>
@@ -135,6 +144,11 @@ const MIN_PLAYERS = 4;
     }
     .start {
       margin-left: 0.5rem;
+    }
+    .forfeit {
+      margin: 0 0.35rem;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.75rem;
     }
     .result-banner {
       margin: 0 0 1rem;
@@ -291,6 +305,29 @@ export class TournamentComponent implements OnInit {
 
   protected start(): void {
     this.run(this.tournaments.start(this.code));
+  }
+
+  protected canForfeit(pairing: TournamentPairing): boolean {
+    return this.isOrganizer() && pairing.status === 'IN_PROGRESS';
+  }
+
+  protected forfeit(pairing: TournamentPairing, color: 'white' | 'black'): void {
+    const name = color === 'white' ? pairing.whiteName : pairing.blackName;
+    if (!window.confirm(`Déclarer forfait pour ${name ?? 'ce joueur'} ?`)) {
+      return;
+    }
+    this.busy.set(true);
+    this.error.set(null);
+    this.tournaments.forfeit(this.code, pairing.gameCode, color).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.reload$.next();
+      },
+      error: (err) => {
+        this.error.set(errorMessage(err));
+        this.busy.set(false);
+      },
+    });
   }
 
   protected format(score: number): string {

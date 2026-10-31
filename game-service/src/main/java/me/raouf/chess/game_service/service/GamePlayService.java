@@ -138,6 +138,27 @@ public class GamePlayService {
 		return game;
 	}
 
+	/** L'organisateur déclare le forfait d'une couleur : ce joueur perd, la ronde peut avancer. */
+	@Transactional
+	public Game forfeit(String tournamentCode, String gameCode, String color, long userId) {
+		Game game = games.findWithLockByCode(gameCode).orElseThrow(() -> new GameNotFoundException(gameCode));
+		tournaments.assertCanForfeit(tournamentCode, game, userId);
+		if (game.getStatus() == GameStatus.WAITING) {
+			throw ApiException.gameNotStarted();
+		}
+		if (game.getStatus() == GameStatus.FINISHED) {
+			throw ApiException.gameAlreadyFinished();
+		}
+		String winner = "white".equals(color) ? "black" : "white";
+		finishGame(game, game.getNextMoveNumber() - 1, winnerResult(winner), "FORFEIT");
+		return game;
+	}
+
+	@Transactional(readOnly = true)
+	public List<Game> listMine(long userId) {
+		return games.findByWhiteUser_IdOrBlackUser_IdOrderByIdDesc(userId, userId);
+	}
+
 	@Transactional(readOnly = true)
 	public List<Move> getMoves(String code) {
 		Game game = games.findByCode(code).orElseThrow(() -> new GameNotFoundException(code));

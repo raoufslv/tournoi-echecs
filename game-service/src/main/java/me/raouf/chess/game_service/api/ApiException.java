@@ -77,4 +77,8 @@ public class ApiException extends RuntimeException {
 		return new ApiException(HttpStatus.CONFLICT, "TOURNAMENT_ALREADY_STARTED");
 	}
 
+	public static ApiException gameNotInTournament() {
+		return new ApiException(HttpStatus.CONFLICT, "GAME_NOT_IN_TOURNAMENT");
+	}
+
 }

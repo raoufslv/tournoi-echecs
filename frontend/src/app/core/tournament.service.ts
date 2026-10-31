@@ -2,12 +2,22 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { Tournament } from './api.models';
+import { MyTournament, Tournament } from './api.models';
 import { API_URL } from './config';
 
 @Injectable({ providedIn: 'root' })
 export class TournamentService {
   private readonly http = inject(HttpClient);
+
+  mine(): Observable<MyTournament[]> {
+    return this.http.get<MyTournament[]>(`${API_URL}/tournaments/mine`);
+  }
+
+  forfeit(code: string, gameCode: string, color: 'white' | 'black'): Observable<unknown> {
+    return this.http.post(`${API_URL}/tournaments/${encodeURIComponent(code)}/games/${encodeURIComponent(gameCode)}/forfeit`, {
+      color,
+    });
+  }
 
   create(name: string, rounds: number): Observable<Tournament> {
     return this.http.post<Tournament>(`${API_URL}/tournaments`, { name, rounds });

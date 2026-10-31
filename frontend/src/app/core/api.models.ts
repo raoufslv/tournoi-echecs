@@ -38,6 +38,7 @@ export interface TournamentPairing {
   blackName: string | null;
   status: GameStatus;
   result: string | null;
+  endReason?: string | null;
 }
 
 export interface TournamentRound {
@@ -57,6 +58,15 @@ export interface Tournament {
   organizerName: string;
   standings: Standing[];
   rounds: TournamentRound[];
+}
+
+export interface MyTournament {
+  code: string;
+  name: string;
+  status: TournamentStatus;
+  roundsTotal: number;
+  currentRound: number;
+  organizer: boolean;
 }
 
 export interface MoveEntry {

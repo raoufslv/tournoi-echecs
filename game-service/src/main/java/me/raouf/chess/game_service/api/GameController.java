@@ -25,6 +25,11 @@ public class GameController {
 		this.games = games;
 	}
 
+	@GetMapping("/games/mine")
+	public List<GameResponse> mine(@AuthenticationPrincipal Jwt jwt) {
+		return games.listMine(userId(jwt)).stream().map(GameResponse::from).toList();
+	}
+
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
 	public GameResponse create(@AuthenticationPrincipal Jwt jwt) {

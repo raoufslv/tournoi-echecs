@@ -28,7 +28,7 @@ public record TournamentResponse(
 	}
 
 	public record Pairing(String gameCode, Long whiteId, String whiteName, Long blackId, String blackName,
-			String status, String result) {
+			String status, String result, String endReason) {
 	}
 
 	public record RoundInfo(int round, List<Pairing> games, Long byeUserId, String byeName) {
@@ -100,7 +100,7 @@ public record TournamentResponse(
 							g.getCode(),
 							g.getWhiteUser().getId(), g.getWhiteUser().getDisplayName(),
 							g.getBlackUser().getId(), g.getBlackUser().getDisplayName(),
-							g.getStatus().name(), g.getResult()))
+							g.getStatus().name(), g.getResult(), g.getEndReason()))
 					.toList();
 			TournamentParticipant bye = details.participants().stream()
 					.filter(p -> p.getByeRound() != null && p.getByeRound() == current)

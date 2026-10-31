@@ -9,6 +9,10 @@ import { API_URL } from './config';
 export class GameService {
   private readonly http = inject(HttpClient);
 
+  mine(): Observable<Game[]> {
+    return this.http.get<Game[]>(`${API_URL}/games/mine`);
+  }
+
   create(): Observable<Game> {
     return this.http.post<Game>(`${API_URL}/games`, {});
   }

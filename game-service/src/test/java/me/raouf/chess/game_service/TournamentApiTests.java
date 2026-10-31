@@ -57,6 +57,54 @@ class TournamentApiTests {
 	private record Player(String name, String token) {
 	}
 
+	@Test
+	void listsTournamentsThePlayerJoined() throws Exception {
+		Player organizer = player("Orga");
+		Player guest = player("Guest");
+		String code = create(organizer, "Soiree", 3);
+		join(code, guest).andExpect(status().isOk());
+
+		mvc.perform(get("/tournaments/mine").header(HttpHeaders.AUTHORIZATION, bearer(organizer)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].code").value(code))
+				.andExpect(jsonPath("$[0].organizer").value(true));
+
+		mvc.perform(get("/tournaments/mine").header(HttpHeaders.AUTHORIZATION, bearer(guest)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].code").value(code))
+				.andExpect(jsonPath("$[0].organizer").value(false));
+	}
+
+	@Test
+	void organizerForfeitEndsTheGameAndStartsTheNextRound() throws Exception {
+		List<Player> players = players(4);
+		String code = startedTournament(players, 3);
+		String first = tournament(code, players.get(0));
+		List<String> gameCodes = JsonPath.read(first, "$.rounds[0].games[*].gameCode");
+		assertThat(gameCodes).hasSize(2);
+
+		mvc.perform(post("/tournaments/{code}/games/{gameCode}/forfeit", code, gameCodes.get(0))
+						.header(HttpHeaders.AUTHORIZATION, bearer(players.get(1)))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"color\":\"white\"}"))
+				.andExpect(status().isForbidden());
+
+		for (String gameCode : gameCodes) {
+			mvc.perform(post("/tournaments/{code}/games/{gameCode}/forfeit", code, gameCode)
+							.header(HttpHeaders.AUTHORIZATION, bearer(players.get(0)))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("{\"color\":\"black\"}"))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.endReason").value("FORFEIT"))
+					.andExpect(jsonPath("$.result").value("1-0"));
+		}
+
+		mvc.perform(get("/tournaments/{code}", code).header(HttpHeaders.AUTHORIZATION, bearer(players.get(0))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.currentRound").value(2))
+				.andExpect(jsonPath("$.rounds[0].games[0].endReason").value("FORFEIT"));
+	}
+
 	// --- Creation et inscription ---
 
 	@Test

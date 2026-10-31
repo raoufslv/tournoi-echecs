@@ -1,7 +1,11 @@
 <header class="topbar">
   <a routerLink="/" class="brand">Tournoi d'échecs</a>
   @if (auth.isLoggedIn()) {
-    <button type="button" class="secondary" (click)="auth.logout()">Se déconnecter</button>
+    <nav class="nav">
+      <a routerLink="/mine/games">Mes parties</a>
+      <a routerLink="/mine/tournaments">Mes tournois</a>
+      <button type="button" class="secondary" (click)="auth.logout()">Se déconnecter</button>
+    </nav>
   }
 </header>
 

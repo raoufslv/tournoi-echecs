@@ -25,12 +25,16 @@ export function isPlayerOf(pairing: TournamentPairing, userId: number | null): b
 export function pairingResult(pairing: TournamentPairing): string {
   switch (pairing.result) {
     case '1-0':
-      return '1 - 0';
+      return withForfeit('1 - 0', pairing);
     case '0-1':
-      return '0 - 1';
+      return withForfeit('0 - 1', pairing);
     case '1/2-1/2':
-      return '½ - ½';
+      return withForfeit('½ - ½', pairing);
     default:
       return pairing.status === 'FINISHED' ? '' : 'en cours';
   }
+}
+
+function withForfeit(score: string, pairing: TournamentPairing): string {
+  return pairing.endReason === 'FORFEIT' ? `${score} (forfait)` : score;
 }

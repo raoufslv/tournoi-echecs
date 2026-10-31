@@ -336,6 +336,23 @@ class GameApiTests {
 				.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
+	@Test
+	void listsGamesThePlayerTakesPartIn() throws Exception {
+		String alice = tokenFor("Alice");
+		String bob = tokenFor("Bob");
+		String code = startedGame(alice, bob);
+
+		mvc.perform(get("/games/mine").header(HttpHeaders.AUTHORIZATION, "Bearer " + alice))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].code").value(code))
+				.andExpect(jsonPath("$[0].blackName").value("Bob"));
+
+		mvc.perform(get("/games/mine").header(HttpHeaders.AUTHORIZATION, "Bearer " + bob))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].code").value(code))
+				.andExpect(jsonPath("$[0].whiteName").value("Alice"));
+	}
+
 	// --- Aides ---
 
 	private String uniqueEmail() {
