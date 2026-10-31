@@ -5,6 +5,7 @@ import { Subject, catchError, of, switchMap } from 'rxjs';
 
 import { Tournament, TournamentPairing } from '../../core/api.models';
 import { AuthService } from '../../core/auth.service';
+import { copyText } from '../../core/copy-text';
 import { errorMessage } from '../../core/error-messages';
 import { LiveService } from '../../core/live.service';
 import {
@@ -305,7 +306,11 @@ export class TournamentComponent implements OnInit {
   }
 
   protected copyCode(code: string): void {
-    navigator.clipboard?.writeText(code).then(() => {
+    void copyText(code).then((ok) => {
+      if (!ok) {
+        this.error.set('Impossible de copier le code.');
+        return;
+      }
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 1500);
     });

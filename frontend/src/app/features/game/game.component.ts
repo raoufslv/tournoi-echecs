@@ -13,6 +13,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { Game, MoveEntry } from '../../core/api.models';
 import { AuthService } from '../../core/auth.service';
+import { copyText } from '../../core/copy-text';
 import { errorMessage } from '../../core/error-messages';
 import { GameService } from '../../core/game.service';
 import { appendMove, applyEvent, fenAtIndex, isNewer, resultText } from '../../core/game-state';
@@ -351,7 +352,11 @@ export class GameComponent implements OnInit {
   }
 
   protected copyCode(code: string): void {
-    navigator.clipboard?.writeText(code).then(() => {
+    void copyText(code).then((ok) => {
+      if (!ok) {
+        this.error.set('Impossible de copier le code.');
+        return;
+      }
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 1500);
     });
