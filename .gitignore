@@ -1,5 +1,7 @@
 .env
 *.log
+deploy_vps
+deploy_vps.pub
 target/
 node_modules/
 dist/
