@@ -19,8 +19,8 @@ export class TournamentService {
     });
   }
 
-  create(name: string, rounds: number): Observable<Tournament> {
-    return this.http.post<Tournament>(`${API_URL}/tournaments`, { name, rounds });
+  create(name: string, rounds: number, minutes: number): Observable<Tournament> {
+    return this.http.post<Tournament>(`${API_URL}/tournaments`, { name, rounds, minutes });
   }
 
   get(code: string): Observable<Tournament> {

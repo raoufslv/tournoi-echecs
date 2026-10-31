@@ -16,7 +16,12 @@ public record GameResponse(
 		String result,
 		String endReason,
 		String tournamentCode,
-		Integer round
+		Integer round,
+		Long initialMs,
+		Long whiteRemainingMs,
+		Long blackRemainingMs,
+		Long clockDeadline,
+		Long drawOfferedBy
 ) {
 
 	public static GameResponse from(Game game) {
@@ -33,7 +38,12 @@ public record GameResponse(
 				game.getResult(),
 				game.getEndReason(),
 				game.getTournament() == null ? null : game.getTournament().getCode(),
-				game.getRound()
+				game.getRound(),
+				game.getInitialMs(),
+				game.getWhiteRemainingMs(),
+				game.getBlackRemainingMs(),
+				game.getClockDeadline() == null ? null : game.getClockDeadline().toEpochMilli(),
+				game.getDrawOfferedBy() == null ? null : game.getDrawOfferedBy().getId()
 		);
 	}
 

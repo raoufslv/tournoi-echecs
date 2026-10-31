@@ -32,8 +32,10 @@ public class GameController {
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
-	public GameResponse create(@AuthenticationPrincipal Jwt jwt) {
-		return GameResponse.from(games.createGame(userId(jwt)));
+	public GameResponse create(@RequestBody(required = false) CreateGameRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		Integer minutes = request == null ? null : request.minutes();
+		return GameResponse.from(games.createGame(userId(jwt), minutes));
 	}
 
 	@GetMapping("/games/{code}")
@@ -57,6 +59,26 @@ public class GameController {
 	@PostMapping("/games/{code}/resign")
 	public GameResponse resign(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
 		return GameResponse.from(games.resign(code, userId(jwt)));
+	}
+
+	@PostMapping("/games/{code}/draw")
+	public GameResponse offerDraw(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
+		return GameResponse.from(games.offerDraw(code, userId(jwt)));
+	}
+
+	@PostMapping("/games/{code}/draw/accept")
+	public GameResponse acceptDraw(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
+		return GameResponse.from(games.acceptDraw(code, userId(jwt)));
+	}
+
+	@PostMapping("/games/{code}/draw/decline")
+	public GameResponse declineDraw(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
+		return GameResponse.from(games.declineDraw(code, userId(jwt)));
+	}
+
+	@PostMapping("/games/{code}/rematch")
+	public GameResponse rematch(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
+		return GameResponse.from(games.rematch(code, userId(jwt)));
 	}
 
 	@GetMapping("/games/{code}/moves")

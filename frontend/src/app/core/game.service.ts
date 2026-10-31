@@ -13,8 +13,24 @@ export class GameService {
     return this.http.get<Game[]>(`${API_URL}/games/mine`);
   }
 
-  create(): Observable<Game> {
-    return this.http.post<Game>(`${API_URL}/games`, {});
+  create(minutes: number): Observable<Game> {
+    return this.http.post<Game>(`${API_URL}/games`, { minutes });
+  }
+
+  offerDraw(code: string): Observable<Game> {
+    return this.http.post<Game>(`${API_URL}/games/${encodeURIComponent(code)}/draw`, {});
+  }
+
+  acceptDraw(code: string): Observable<Game> {
+    return this.http.post<Game>(`${API_URL}/games/${encodeURIComponent(code)}/draw/accept`, {});
+  }
+
+  declineDraw(code: string): Observable<Game> {
+    return this.http.post<Game>(`${API_URL}/games/${encodeURIComponent(code)}/draw/decline`, {});
+  }
+
+  rematch(code: string): Observable<Game> {
+    return this.http.post<Game>(`${API_URL}/games/${encodeURIComponent(code)}/rematch`, {});
   }
 
   get(code: string): Observable<Game> {

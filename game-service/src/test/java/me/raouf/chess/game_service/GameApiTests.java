@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,9 @@ class GameApiTests {
 
 	@Autowired
 	private MoveRepository moves;
+
+	@Autowired
+	private me.raouf.chess.game_service.service.GamePlayService play;
 
 	// --- Comptes et JWT ---
 
@@ -351,6 +355,58 @@ class GameApiTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].code").value(code))
 				.andExpect(jsonPath("$[0].whiteName").value("Alice"));
+	}
+
+	@Test
+	void clockShrinksAfterAMoveAndAFlagEndsTheGame() throws Exception {
+		String white = tokenFor("Alice");
+		String black = tokenFor("Bob");
+		String code = startedGame(white, black);
+		Game game = games.findByCode(code).orElseThrow();
+		long before = game.getWhiteRemainingMs();
+		game.setClockDeadline(Instant.now().plusMillis(before).minusSeconds(2));
+		games.saveAndFlush(game);
+
+		move(code, white, "e2e4").andExpect(status().isOk());
+		Game after = games.findByCode(code).orElseThrow();
+		assertThat(after.getWhiteRemainingMs()).isLessThan(before);
+
+		after.setClockDeadline(Instant.now().minusSeconds(1));
+		games.saveAndFlush(after);
+		play.flagIfExpired(code);
+		mvc.perform(get("/games/{code}", code).header(HttpHeaders.AUTHORIZATION, "Bearer " + white))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("FINISHED"))
+				.andExpect(jsonPath("$.endReason").value("TIME"))
+				.andExpect(jsonPath("$.result").value("1-0"));
+	}
+
+	@Test
+	void acceptedDrawHalvesThePointAndRematchSwapsColors() throws Exception {
+		String white = tokenFor("Alice");
+		String black = tokenFor("Bob");
+		String code = startedGame(white, black);
+
+		mvc.perform(post("/games/{code}/draw", code).header(HttpHeaders.AUTHORIZATION, "Bearer " + white))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.drawOfferedBy").isNumber());
+		mvc.perform(post("/games/{code}/draw/accept", code).header(HttpHeaders.AUTHORIZATION, "Bearer " + black))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.result").value("1/2-1/2"))
+				.andExpect(jsonPath("$.endReason").value("AGREEMENT"));
+
+		MvcResult rematch = mvc.perform(post("/games/{code}/rematch", code)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + black))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.whiteName").value("Bob"))
+				.andExpect(jsonPath("$.blackName").value("Alice"))
+				.andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+				.andReturn();
+		String rematchCode = JsonPath.read(rematch.getResponse().getContentAsString(), "$.code");
+
+		mvc.perform(post("/games/{code}/rematch", code).header(HttpHeaders.AUTHORIZATION, "Bearer " + white))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.code").value(rematchCode));
 	}
 
 	// --- Aides ---

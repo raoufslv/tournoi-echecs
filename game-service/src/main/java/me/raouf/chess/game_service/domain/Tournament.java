@@ -45,14 +45,18 @@ public class Tournament {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt = Instant.now();
 
+	@Column(nullable = false)
+	private int minutes = 10;
+
 	protected Tournament() {
 	}
 
-	public Tournament(String code, String name, User createdBy, int roundsTotal) {
+	public Tournament(String code, String name, User createdBy, int roundsTotal, int minutes) {
 		this.code = code;
 		this.name = name;
 		this.createdBy = createdBy;
 		this.roundsTotal = roundsTotal;
+		this.minutes = minutes;
 		this.status = TournamentStatus.REGISTRATION;
 		this.currentRound = 0;
 	}
@@ -87,6 +91,10 @@ public class Tournament {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public int getMinutes() {
+		return minutes;
 	}
 
 	public void setStatus(TournamentStatus status) {

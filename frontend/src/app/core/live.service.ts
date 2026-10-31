@@ -9,7 +9,14 @@ export type LiveMessage =
   | { kind: 'error' }
   | { kind: 'event'; event: GameEvent };
 
-export const EVENT_TYPES: GameEvent['type'][] = ['move.played', 'game.ended', 'player.joined'];
+export const EVENT_TYPES: GameEvent['type'][] = [
+  'move.played',
+  'game.ended',
+  'player.joined',
+  'draw.offered',
+  'draw.declined',
+  'rematch.created',
+];
 
 /** Permet de remplacer EventSource dans les tests. */
 export const EVENT_SOURCE_FACTORY = new InjectionToken<(url: string) => EventSource>(

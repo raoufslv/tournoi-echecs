@@ -13,6 +13,12 @@ import { TournamentService } from '../../core/tournament.service';
     <section class="card">
       <h1>Nouvelle partie</h1>
       <p class="hint">Créez une partie puis partagez son code avec votre adversaire.</p>
+      <label for="minutes">Temps par joueur</label>
+      <select id="minutes" [(ngModel)]="minutes">
+        <option [ngValue]="5">5 min</option>
+        <option [ngValue]="10">10 min</option>
+        <option [ngValue]="15">15 min</option>
+      </select>
       <button type="button" (click)="create()" [disabled]="loading()">Créer une partie</button>
     </section>
 
@@ -45,6 +51,12 @@ import { TournamentService } from '../../core/tournament.service';
         maxlength="60"
         placeholder="Soirée du vendredi"
       />
+      <label for="tournament-minutes">Temps par joueur</label>
+      <select id="tournament-minutes" [(ngModel)]="tournamentMinutes">
+        <option [ngValue]="5">5 min</option>
+        <option [ngValue]="10">10 min</option>
+        <option [ngValue]="15">15 min</option>
+      </select>
       <label for="tournament-rounds">Nombre de rondes</label>
       <select id="tournament-rounds" [(ngModel)]="rounds">
         <option [ngValue]="3">3</option>
@@ -112,11 +124,13 @@ export class LobbyComponent {
   protected tournamentName = '';
   protected tournamentCode = '';
   protected rounds = 3;
+  protected minutes = 10;
+  protected tournamentMinutes = 10;
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected create(): void {
-    this.run(this.games.create());
+    this.run(this.games.create(this.minutes));
   }
 
   protected createTournament(): void {
@@ -126,7 +140,7 @@ export class LobbyComponent {
     }
     this.loading.set(true);
     this.error.set(null);
-    this.tournaments.create(name, this.rounds).subscribe({
+    this.tournaments.create(name, this.rounds, this.tournamentMinutes).subscribe({
       next: (tournament) => this.router.navigate(['/tournament', tournament.code]),
       error: (err) => this.fail(err),
     });

@@ -1,5 +1,6 @@
 package me.raouf.chess.game_service.service;
 
+import java.time.Instant;
 import java.util.List;
 
 import com.github.bhlangonijr.chesslib.Board;
@@ -17,10 +18,12 @@ import me.raouf.chess.game_service.domain.Move;
 import me.raouf.chess.game_service.domain.MoveRepository;
 import me.raouf.chess.game_service.domain.User;
 import me.raouf.chess.game_service.domain.UserRepository;
+import me.raouf.chess.game_service.events.DrawNotice;
 import me.raouf.chess.game_service.events.GameEndedEvent;
 import me.raouf.chess.game_service.events.MovePlayedEvent;
 import me.raouf.chess.game_service.events.OutboxService;
 import me.raouf.chess.game_service.events.PlayerJoinedEvent;
+import me.raouf.chess.game_service.events.RematchCreatedEvent;
 
 @Service
 public class GamePlayService {
@@ -43,12 +46,13 @@ public class GamePlayService {
 	}
 
 	@Transactional
-	public Game createGame(long userId) {
+	public Game createGame(long userId, Integer minutes) {
 		User creator = findUser(userId);
 		Board board = new Board();
 		String code = codes.next(candidate -> games.findByCode(candidate).isPresent());
 		Game game = new Game(code, GameStatus.WAITING, board.getFen(), 1);
 		game.setWhiteUser(creator);
+		ChessClock.arm(game, ChessClock.requireMinutes(minutes));
 		return games.save(game);
 	}
 
@@ -69,6 +73,7 @@ public class GamePlayService {
 		User black = findUser(userId);
 		game.setBlackUser(black);
 		game.setStatus(GameStatus.IN_PROGRESS);
+		ChessClock.start(game, Instant.now());
 		outbox.record(game.getId(), PlayerJoinedEvent.TYPE, null,
 				PlayerJoinedEvent.of(game.getId(), game.getCode(), "black", black.getId(), black.getDisplayName()));
 		return game;
@@ -87,6 +92,11 @@ public class GamePlayService {
 		if (expected == null || !expected.getId().equals(userId)) {
 			throw ApiException.notYourTurn();
 		}
+		Instant now = Instant.now();
+		if (ChessClock.expired(game, now)) {
+			flagLocked(game);
+			return game;
+		}
 
 		Board board = new Board();
 		board.loadFromFen(game.getCurrentFen());
@@ -103,6 +113,8 @@ public class GamePlayService {
 
 		int moveNumber = game.getNextMoveNumber();
 		String fenAfter = board.getFen();
+		ChessClock.consumeTurn(game, now);
+		game.setDrawOfferedBy(null);
 		moves.save(new Move(game, moveNumber, legal.toString(), san, fenAfter));
 		game.setCurrentFen(fenAfter);
 		game.setNextMoveNumber(moveNumber + 1);
@@ -154,6 +166,81 @@ public class GamePlayService {
 		return game;
 	}
 
+	@Transactional
+	public void flagIfExpired(String code) {
+		Game game = games.findWithLockByCode(code).orElse(null);
+		if (game == null || game.getStatus() != GameStatus.IN_PROGRESS) {
+			return;
+		}
+		if (!ChessClock.expired(game, Instant.now())) {
+			return;
+		}
+		flagLocked(game);
+	}
+
+	@Transactional
+	public Game offerDraw(String code, long userId) {
+		Game game = requirePlaying(code, userId);
+		game.setDrawOfferedBy(findUser(userId));
+		outbox.record(game.getId(), DrawNotice.OFFERED, null,
+				DrawNotice.offered(game.getId(), game.getCode(), userId));
+		return game;
+	}
+
+	@Transactional
+	public Game acceptDraw(String code, long userId) {
+		Game game = requirePlaying(code, userId);
+		User offer = game.getDrawOfferedBy();
+		if (offer == null || offer.getId().equals(userId)) {
+			throw ApiException.drawNotOffered();
+		}
+		finishGame(game, game.getNextMoveNumber() - 1, "1/2-1/2", "AGREEMENT");
+		return game;
+	}
+
+	@Transactional
+	public Game declineDraw(String code, long userId) {
+		Game game = requirePlaying(code, userId);
+		User offer = game.getDrawOfferedBy();
+		if (offer == null || offer.getId().equals(userId)) {
+			throw ApiException.drawNotOffered();
+		}
+		game.setDrawOfferedBy(null);
+		outbox.record(game.getId(), DrawNotice.DECLINED, null,
+				DrawNotice.declined(game.getId(), game.getCode()));
+		return game;
+	}
+
+	@Transactional
+	public Game rematch(String code, long userId) {
+		Game game = games.findWithLockByCode(code).orElseThrow(() -> new GameNotFoundException(code));
+		if (game.getStatus() != GameStatus.FINISHED) {
+			throw ApiException.gameNotStarted();
+		}
+		if (!isPlayer(game, userId)) {
+			throw ApiException.spectatorCannotMove();
+		}
+		if (game.getRematchGame() != null) {
+			return game.getRematchGame();
+		}
+		User previousWhite = game.getWhiteUser();
+		User previousBlack = game.getBlackUser();
+		Board board = new Board();
+		String nextCode = codes.next(candidate -> games.findByCode(candidate).isPresent());
+		Game next = new Game(nextCode, GameStatus.IN_PROGRESS, board.getFen(), 1);
+		next.setWhiteUser(previousBlack);
+		next.setBlackUser(previousWhite);
+		if (game.getInitialMs() != null) {
+			ChessClock.arm(next, (int) (game.getInitialMs() / 60_000L));
+			ChessClock.start(next, Instant.now());
+		}
+		games.save(next);
+		game.setRematchGame(next);
+		outbox.record(game.getId(), RematchCreatedEvent.TYPE, null,
+				RematchCreatedEvent.of(game.getId(), game.getCode(), next.getCode()));
+		return next;
+	}
+
 	@Transactional(readOnly = true)
 	public List<Game> listMine(long userId) {
 		return games.findByWhiteUser_IdOrBlackUser_IdOrderByIdDesc(userId, userId);
@@ -163,6 +250,30 @@ public class GamePlayService {
 	public List<Move> getMoves(String code) {
 		Game game = games.findByCode(code).orElseThrow(() -> new GameNotFoundException(code));
 		return moves.findByGameOrderByMoveNumberAsc(game);
+	}
+
+	private Game requirePlaying(String code, long userId) {
+		Game game = games.findWithLockByCode(code).orElseThrow(() -> new GameNotFoundException(code));
+		if (game.getStatus() != GameStatus.IN_PROGRESS) {
+			throw game.getStatus() == GameStatus.FINISHED
+					? ApiException.gameAlreadyFinished()
+					: ApiException.gameNotStarted();
+		}
+		if (!isPlayer(game, userId)) {
+			throw ApiException.spectatorCannotMove();
+		}
+		return game;
+	}
+
+	private static boolean isPlayer(Game game, long userId) {
+		boolean isWhite = game.getWhiteUser() != null && game.getWhiteUser().getId().equals(userId);
+		boolean isBlack = game.getBlackUser() != null && game.getBlackUser().getId().equals(userId);
+		return isWhite || isBlack;
+	}
+
+	private void flagLocked(Game game) {
+		String winner = "WHITE".equals(game.getTurn()) ? "black" : "white";
+		finishGame(game, game.getNextMoveNumber() - 1, winnerResult(winner), "TIME");
 	}
 
 	private void finishGame(Game game, int lastMoveNumber, String result, String reason) {

@@ -36,7 +36,9 @@ export function applyEvent(game: Game, event: GameEvent): Game {
       if (game.status === 'FINISHED' && game.result === event.result) {
         return game;
       }
-      return { ...game, status: 'FINISHED', result: event.result, endReason: event.endReason };
+      return { ...game, status: 'FINISHED', result: event.result, endReason: event.endReason, clockDeadline: null };
+    default:
+      return game;
   }
 }
 
@@ -51,7 +53,11 @@ export function isNewer(current: Game | null, incoming: Game): boolean {
   return (
     incoming.status !== current.status ||
     incoming.blackId !== current.blackId ||
-    incoming.result !== current.result
+    incoming.result !== current.result ||
+    incoming.drawOfferedBy !== current.drawOfferedBy ||
+    incoming.clockDeadline !== current.clockDeadline ||
+    incoming.whiteRemainingMs !== current.whiteRemainingMs ||
+    incoming.blackRemainingMs !== current.blackRemainingMs
   );
 }
 
@@ -91,6 +97,8 @@ export function resultText(result: string | null, endReason: string | null): str
     RESIGNATION: 'par abandon',
     FORFEIT: 'par forfait',
     STALEMATE: 'par pat',
+    TIME: 'au temps',
+    AGREEMENT: 'par accord',
   };
   const reason = endReason ? reasons[endReason] : undefined;
   const suffix = reason ? ` ${reason}` : '';

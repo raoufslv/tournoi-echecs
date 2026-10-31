@@ -35,7 +35,7 @@ public class TournamentController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public TournamentResponse create(@Valid @RequestBody CreateTournamentRequest request,
 			@AuthenticationPrincipal Jwt jwt) {
-		var tournament = tournaments.create(userId(jwt), request.name(), request.rounds());
+		var tournament = tournaments.create(userId(jwt), request.name(), request.rounds(), request.minutes());
 		return TournamentResponse.from(tournaments.get(tournament.getCode()));
 	}
 

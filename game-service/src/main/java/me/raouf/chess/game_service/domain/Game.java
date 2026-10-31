@@ -1,5 +1,7 @@
 package me.raouf.chess.game_service.domain;
 
+import java.time.Instant;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -54,6 +56,26 @@ public class Game {
 	@Column(name = "round")
 	private Integer round;
 
+	@Column(name = "initial_ms")
+	private Long initialMs;
+
+	@Column(name = "white_remaining_ms")
+	private Long whiteRemainingMs;
+
+	@Column(name = "black_remaining_ms")
+	private Long blackRemainingMs;
+
+	@Column(name = "clock_deadline")
+	private Instant clockDeadline;
+
+	@ManyToOne(fetch = FetchType.EAGER)
+	@JoinColumn(name = "draw_offered_by")
+	private User drawOfferedBy;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "rematch_game_id")
+	private Game rematchGame;
+
 	protected Game() {
 	}
 
@@ -84,6 +106,56 @@ public class Game {
 		this.status = GameStatus.FINISHED;
 		this.result = result;
 		this.endReason = endReason;
+		this.clockDeadline = null;
+		this.drawOfferedBy = null;
+	}
+
+	public Long getInitialMs() {
+		return initialMs;
+	}
+
+	public void setInitialMs(Long initialMs) {
+		this.initialMs = initialMs;
+	}
+
+	public Long getWhiteRemainingMs() {
+		return whiteRemainingMs;
+	}
+
+	public void setWhiteRemainingMs(Long whiteRemainingMs) {
+		this.whiteRemainingMs = whiteRemainingMs;
+	}
+
+	public Long getBlackRemainingMs() {
+		return blackRemainingMs;
+	}
+
+	public void setBlackRemainingMs(Long blackRemainingMs) {
+		this.blackRemainingMs = blackRemainingMs;
+	}
+
+	public Instant getClockDeadline() {
+		return clockDeadline;
+	}
+
+	public void setClockDeadline(Instant clockDeadline) {
+		this.clockDeadline = clockDeadline;
+	}
+
+	public User getDrawOfferedBy() {
+		return drawOfferedBy;
+	}
+
+	public void setDrawOfferedBy(User drawOfferedBy) {
+		this.drawOfferedBy = drawOfferedBy;
+	}
+
+	public Game getRematchGame() {
+		return rematchGame;
+	}
+
+	public void setRematchGame(Game rematchGame) {
+		this.rematchGame = rematchGame;
 	}
 
 	public Game(String code, GameStatus status, String currentFen, int nextMoveNumber) {

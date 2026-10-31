@@ -20,6 +20,7 @@ public record TournamentResponse(
 		int currentRound,
 		long organizerId,
 		String organizerName,
+		int minutes,
 		List<Standing> standings,
 		List<RoundInfo> rounds
 ) {
@@ -44,6 +45,7 @@ public record TournamentResponse(
 				tournament.getCurrentRound(),
 				tournament.getCreatedBy().getId(),
 				tournament.getCreatedBy().getDisplayName(),
+				tournament.getMinutes(),
 				standings(details),
 				rounds(details));
 	}

@@ -146,6 +146,8 @@ describe('resultText', () => {
 
   it('describes a draw', () => {
     expect(resultText('1/2-1/2', 'STALEMATE')).toBe('Partie nulle par pat');
+    expect(resultText('1/2-1/2', 'AGREEMENT')).toBe('Partie nulle par accord');
+    expect(resultText('0-1', 'TIME')).toBe('Les Noirs gagnent au temps');
   });
 
   it('returns null when the result is unknown', () => {

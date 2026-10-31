@@ -81,4 +81,12 @@ public class ApiException extends RuntimeException {
 		return new ApiException(HttpStatus.CONFLICT, "GAME_NOT_IN_TOURNAMENT");
 	}
 
+	public static ApiException invalidRequest() {
+		return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+	}
+
+	public static ApiException drawNotOffered() {
+		return new ApiException(HttpStatus.CONFLICT, "DRAW_NOT_OFFERED");
+	}
+
 }

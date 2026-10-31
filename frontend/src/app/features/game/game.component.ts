@@ -9,7 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { Game, MoveEntry } from '../../core/api.models';
 import { AuthService } from '../../core/auth.service';
@@ -60,9 +60,15 @@ const PROMOTIONS = [
 
         <div class="players">
           <span [class.active]="g.status === 'IN_PROGRESS' && g.turn === 'WHITE'">
+            @if (clock(g, 'WHITE'); as time) {
+              <strong class="clock">{{ time }}</strong>
+            }
             Blancs : {{ g.whiteName ?? 'en attente…' }}
           </span>
           <span [class.active]="g.status === 'IN_PROGRESS' && g.turn === 'BLACK'">
+            @if (clock(g, 'BLACK'); as time) {
+              <strong class="clock">{{ time }}</strong>
+            }
             Noirs : {{ g.blackName ?? 'en attente…' }}
           </span>
         </div>
@@ -117,6 +123,19 @@ const PROMOTIONS = [
         <h2 class="moves-title">Coups</h2>
         <app-move-list [moves]="moves()" [current]="currentIndex()" (selected)="goTo($event)" />
 
+        @if (offeredByMe()) {
+          <p class="hint">Nulle proposée à l'adversaire.</p>
+        }
+        @if (canOfferDraw()) {
+          <button type="button" class="secondary" (click)="offerDraw()">Proposer la nulle</button>
+        }
+        @if (drawForMe()) {
+          <button type="button" (click)="acceptDraw()">Accepter la nulle</button>
+          <button type="button" class="secondary" (click)="declineDraw()">Refuser</button>
+        }
+        @if (canRematch()) {
+          <button type="button" (click)="askRematch()">Revanche</button>
+        }
         @if (canResign()) {
           <button type="button" class="secondary resign" (click)="resign()">Abandonner</button>
         }
@@ -141,6 +160,15 @@ const PROMOTIONS = [
       flex-direction: column;
       gap: 0.4rem;
       align-items: flex-end;
+    }
+    .clock {
+      display: inline-block;
+      min-width: 3.2rem;
+      margin-right: 0.4rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .hint {
+      color: var(--muted);
     }
     .status {
       margin: 0 0 1rem;
@@ -214,6 +242,10 @@ const PROMOTIONS = [
 })
 export class GameComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly now = signal(Date.now());
+  private timer = 0;
+  private flagged = false;
   private readonly games = inject(GameService);
   private readonly auth = inject(AuthService);
   private readonly live = inject(LiveService);
@@ -248,6 +280,40 @@ export class GameComponent implements OnInit {
   protected readonly canResign = computed(
     () => this.game()?.status === 'IN_PROGRESS' && this.mySide() !== null,
   );
+
+  protected readonly canOfferDraw = computed(() => {
+    const g = this.game();
+    return g?.status === 'IN_PROGRESS' && this.mySide() !== null && g.drawOfferedBy == null;
+  });
+
+  protected readonly offeredByMe = computed(() => {
+    const g = this.game();
+    return g?.status === 'IN_PROGRESS' && g.drawOfferedBy != null && g.drawOfferedBy === this.auth.userId();
+  });
+
+  protected readonly drawForMe = computed(() => {
+    const g = this.game();
+    const me = this.auth.userId();
+    return g?.status === 'IN_PROGRESS' && g.drawOfferedBy != null && me !== null && g.drawOfferedBy !== me
+      && this.mySide() !== null;
+  });
+
+  protected readonly canRematch = computed(
+    () => this.game()?.status === 'FINISHED' && this.mySide() !== null,
+  );
+
+  protected clock(game: Game, color: 'WHITE' | 'BLACK'): string | null {
+    const stored = color === 'WHITE' ? game.whiteRemainingMs : game.blackRemainingMs;
+    if (stored == null) {
+      return null;
+    }
+    const running = game.status === 'IN_PROGRESS' && game.turn === color && game.clockDeadline != null;
+    const ms = running ? Math.max(0, (game.clockDeadline as number) - this.now()) : stored;
+    const seconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return `${minutes}:${String(rest).padStart(2, '0')}`;
+  }
 
   protected readonly mySide = computed<Side | null>(() => {
     const g = this.game();
@@ -294,6 +360,15 @@ export class GameComponent implements OnInit {
   ngOnInit(): void {
     this.code = this.route.snapshot.paramMap.get('code') ?? '';
     document.addEventListener('visibilitychange', this.onVisible);
+    this.timer = window.setInterval(() => {
+      this.now.set(Date.now());
+      const current = this.game();
+      if (!this.flagged && current?.status === 'IN_PROGRESS' && current.clockDeadline != null
+          && current.clockDeadline <= Date.now()) {
+        this.flagged = true;
+        this.refresh();
+      }
+    }, 200);
     this.refresh();
     this.startLive();
   }
@@ -301,6 +376,7 @@ export class GameComponent implements OnInit {
   constructor() {
     this.destroyRef.onDestroy(() => {
       document.removeEventListener('visibilitychange', this.onVisible);
+      window.clearInterval(this.timer);
       document.title = PAGE_TITLE;
     });
   }
@@ -366,6 +442,34 @@ export class GameComponent implements OnInit {
     this.error.set(null);
     this.games.resign(this.code).subscribe({
       next: (game) => this.accept(game),
+      error: (err) => this.error.set(errorMessage(err)),
+    });
+  }
+
+  protected offerDraw(): void {
+    this.games.offerDraw(this.code).subscribe({
+      next: (game) => this.accept(game),
+      error: (err) => this.error.set(errorMessage(err)),
+    });
+  }
+
+  protected acceptDraw(): void {
+    this.games.acceptDraw(this.code).subscribe({
+      next: (game) => this.accept(game),
+      error: (err) => this.error.set(errorMessage(err)),
+    });
+  }
+
+  protected declineDraw(): void {
+    this.games.declineDraw(this.code).subscribe({
+      next: (game) => this.accept(game),
+      error: (err) => this.error.set(errorMessage(err)),
+    });
+  }
+
+  protected askRematch(): void {
+    this.games.rematch(this.code).subscribe({
+      next: (game) => void this.router.navigate(['/game', game.code]),
       error: (err) => this.error.set(errorMessage(err)),
     });
   }
@@ -437,7 +541,17 @@ export class GameComponent implements OnInit {
           case 'event': {
             const event = message.event;
             // L'historique d'abord : accept() vérifie ensuite qu'il est à jour avec la partie.
+            if (event.type === 'rematch.created') {
+              void this.router.navigate(['/game', event.rematchCode]);
+              break;
+            }
+            if (event.type === 'draw.offered' || event.type === 'draw.declined' || event.type === 'game.ended') {
+              this.flagged = false;
+              this.refresh();
+            }
             if (event.type === 'move.played') {
+              this.flagged = false;
+              this.refresh();
               if (shouldNotifyOpponentMove(document.hidden, event.playedBy, this.mySide())) {
                 document.title = OPPONENT_MOVED_TITLE;
                 beep();

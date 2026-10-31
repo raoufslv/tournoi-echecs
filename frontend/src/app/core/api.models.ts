@@ -17,6 +17,12 @@ export interface Game {
   /** Renseignés pour une partie de tournoi : permettent le lien « Retour au tournoi ». */
   tournamentCode?: string | null;
   round?: number | null;
+  initialMs?: number | null;
+  whiteRemainingMs?: number | null;
+  blackRemainingMs?: number | null;
+  /** Échéance du joueur au trait, en millisecondes depuis l'epoch. */
+  clockDeadline?: number | null;
+  drawOfferedBy?: number | null;
 }
 
 export type TournamentStatus = 'REGISTRATION' | 'IN_PROGRESS' | 'FINISHED';
@@ -56,6 +62,7 @@ export interface Tournament {
   currentRound: number;
   organizerId: number;
   organizerName: string;
+  minutes?: number;
   standings: Standing[];
   rounds: TournamentRound[];
 }
@@ -104,7 +111,30 @@ export interface PlayerJoinedEvent {
   displayName: string;
 }
 
-export type GameEvent = MovePlayedEvent | GameEndedEvent | PlayerJoinedEvent;
+export interface DrawOfferedEvent {
+  type: 'draw.offered';
+  code: string;
+  offeredBy: number | null;
+}
+
+export interface DrawDeclinedEvent {
+  type: 'draw.declined';
+  code: string;
+}
+
+export interface RematchCreatedEvent {
+  type: 'rematch.created';
+  code: string;
+  rematchCode: string;
+}
+
+export type GameEvent =
+  | MovePlayedEvent
+  | GameEndedEvent
+  | PlayerJoinedEvent
+  | DrawOfferedEvent
+  | DrawDeclinedEvent
+  | RematchCreatedEvent;
 
 export interface TokenResponse {
   token: string;

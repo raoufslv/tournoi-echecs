@@ -58,6 +58,29 @@ class TournamentApiTests {
 	}
 
 	@Test
+	void tournamentGamesUseTheChosenMinutes() throws Exception {
+		List<Player> players = players(4);
+		MvcResult created = mvc.perform(post("/tournaments")
+						.header(HttpHeaders.AUTHORIZATION, bearer(players.get(0)))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"Rapide\",\"rounds\":3,\"minutes\":5}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.minutes").value(5))
+				.andReturn();
+		String code = JsonPath.read(created.getResponse().getContentAsString(), "$.code");
+		for (Player player : players.subList(1, players.size())) {
+			join(code, player).andExpect(status().isOk());
+		}
+		start(code, players.get(0)).andExpect(status().isOk());
+		String body = tournament(code, players.get(0));
+		String gameCode = JsonPath.read(body, "$.rounds[0].games[0].gameCode");
+		mvc.perform(get("/games/{code}", gameCode).header(HttpHeaders.AUTHORIZATION, bearer(players.get(0))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.initialMs").value(300_000))
+				.andExpect(jsonPath("$.clockDeadline").isNumber());
+	}
+
+	@Test
 	void listsTournamentsThePlayerJoined() throws Exception {
 		Player organizer = player("Orga");
 		Player guest = player("Guest");

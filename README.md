@@ -19,7 +19,7 @@ Angular <-----SSE------ live-service :8081 <-------------+
 
 - `game-service` valide les coups (chesslib) et écrit le coup et son événement dans la même transaction. Un publisher envoie ensuite l'outbox vers Kafka : si Kafka est arrêté, le coup reste accepté et l'événement est republié au retour du broker.
 - `live-service` consomme le topic et pousse chaque événement en SSE aux spectateurs de la partie (`GET /games/{code}/watch`, lecture seule, sans JWT : le code de partie sert de secret de partage).
-- Chaque coup est enregistré avec sa notation SAN (`Nf3`, `Qh4#`). Une partie se termine par mat, pat (résultat enregistré automatiquement) ou abandon (`POST /games/{code}/resign`). Le résultat (`1-0`, `0-1`, `1/2-1/2`) et la raison sont portés par la partie et par l'événement `game.ended`.
+- Chaque coup est enregistré avec sa notation SAN (`Nf3`, `Qh4#`). Une partie se termine par mat, pat, abandon, forfait, nulle par accord ou drapeau. Le résultat (`1-0`, `0-1`, `1/2-1/2`) et la raison sont portés par la partie et par l'événement `game.ended`. Une partie terminée peut être rejouée en revanche, avec les couleurs inversées.
 - L'historique est servi par `GET /games/{code}/moves`. Le front l'affiche en liste de coups et permet de rejouer la partie pas à pas (boutons, flèches du clavier, clic sur un coup) ; le bandeau « Revenir à la partie en cours » ramène au direct, et un coup reçu pendant la consultation ne déplace pas la vue.
 - Tournoi suisse léger (4 à 8 joueurs, 3 à 5 rondes), voir la section suivante.
 - Le front charge l'état par REST, puis suit le direct en SSE. À chaque reconnexion du flux, il recharge l'état pour rattraper ce qu'il a manqué.
@@ -38,7 +38,7 @@ Depuis l'accueil, « Créer un tournoi » donne un code à partager. L'organisat
 
 - Format suisse : un point par victoire, un demi-point par nulle. Ronde 1 au hasard ; ensuite les joueurs de score voisin se rencontrent, sans revanche tant que c'est possible, avec équilibrage des couleurs. À nombre impair, un joueur est exempt (bye, 1 point), jamais deux fois. Le nombre de rondes est ramené à « joueurs - 1 » si besoin.
 - Les parties sont créées par le serveur avec leurs deux joueurs : chacun a un bouton « Jouer ma partie » sur la page du tournoi. Quand la dernière partie d'une ronde se termine, la ronde suivante démarre seule ; après la dernière, le classement final s'affiche (départage : Buchholz, somme des points des adversaires).
-- Un joueur qui ne joue pas bloque la ronde : il peut abandonner, ou son adversaire attend. Il n'y a pas de pendule.
+- Un joueur qui ne joue pas bloque la ronde : il peut abandonner, l'organisateur peut déclarer forfait, ou son temps peut tomber à zéro. Les parties libres et les parties de tournoi ont une pendule de 5, 10 ou 15 minutes, sans incrément.
 - Les changements passent par la même chaîne que les coups : outbox, Kafka (clé `t-<id>`), `live-service`, SSE. Le front ne lit pas le contenu du message : il recharge le tournoi par REST.
 
 ## Ce qui tourne

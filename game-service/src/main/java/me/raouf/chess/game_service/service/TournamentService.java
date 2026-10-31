@@ -71,11 +71,11 @@ public class TournamentService {
 
 	/** Cree le tournoi ; l'organisateur en est aussi le premier inscrit. */
 	@Transactional
-	public Tournament create(long userId, String name, Integer rounds) {
+	public Tournament create(long userId, String name, Integer rounds, Integer minutes) {
 		User organizer = findUser(userId);
 		String code = codes.next(candidate -> tournaments.findByCode(candidate).isPresent());
-		Tournament tournament = tournaments.save(
-				new Tournament(code, name.trim(), organizer, rounds == null ? DEFAULT_ROUNDS : rounds));
+		Tournament tournament = tournaments.save(new Tournament(code, name.trim(), organizer,
+				rounds == null ? DEFAULT_ROUNDS : rounds, ChessClock.requireMinutes(minutes)));
 		participants.save(new TournamentParticipant(tournament, organizer));
 		recordUpdate(tournament);
 		return tournament;
@@ -226,6 +226,8 @@ public class TournamentService {
 			game.setWhiteUser(usersById.get(pairing.whiteId()));
 			game.setBlackUser(usersById.get(pairing.blackId()));
 			game.attachToTournament(tournament, round);
+			ChessClock.arm(game, tournament.getMinutes());
+			ChessClock.start(game, java.time.Instant.now());
 			games.save(game);
 		}
 		if (result.byeId() != null) {
