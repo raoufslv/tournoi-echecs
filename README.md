@@ -1,6 +1,9 @@
 # Tournoi d'échecs en direct
 
 [![CI](https://github.com/raoufslv/tournoi-echecs/actions/workflows/ci.yml/badge.svg)](https://github.com/raoufslv/tournoi-echecs/actions/workflows/ci.yml)
+[![Site](https://github.com/raoufslv/tournoi-echecs/actions/workflows/deploy.yml/badge.svg)](http://15.235.244.32)
+
+Le badge Site ouvre l'application. Il est vert (`passing`) quand le dernier déploiement a réussi, jaune (`in progress`) pendant un redéploiement, rouge (`failing`) si le déploiement a échoué.
 
 Infrastructure (PostgreSQL, Kafka), `game-service` (Spring Boot), `live-service` (Spring Boot) et `frontend` (Angular).
 
