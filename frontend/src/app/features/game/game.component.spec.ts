@@ -57,8 +57,7 @@ async function render(userId: number | null, g: Game, history: MoveEntry[] = [])
     ],
   });
   const fixture = TestBed.createComponent(GameComponent);
-  fixture.detectChanges();
-  await fixture.whenStable();
+  // Pas de whenStable : la pendule tient un setInterval, la zone ne redevient jamais stable.
   fixture.detectChanges();
   const board = () =>
     fixture.debugElement.query(By.directive(BoardComponent)).componentInstance as BoardComponent;
